@@ -5,12 +5,18 @@ export type ScheduleItem = {
   kind: "event" | "task" | "due";
   id: string;
   title: string;
-  /** 어느 이벤트의 것인지 (할 일·돈 낼 날) */
+  /** 어느 이벤트의 것인지 (할 일·결제) */
   eventId: string;
   eventTitle: string;
   category: string;
   date: Date;
   done: boolean;
+  /** 이벤트만 */
+  startTime?: string | null;
+  endTime?: string | null;
+  place?: string | null;
+  /** 결제만 */
+  amount?: number | null;
 };
 
 type EventRow = {
@@ -19,24 +25,29 @@ type EventRow = {
   category: string;
   date: Date | null;
   done: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  place?: string | null;
   tasks: { id: string; content: string; date: Date | null; done: boolean }[];
-  dues: { id: string; title: string; date: Date; done: boolean }[];
+  dues: { id: string; title: string; date: Date; done: boolean; amount?: number | null }[];
 };
 
-/** 이벤트·할 일·돈 낼 날 중 날짜가 있는 것을 한 줄씩 */
+/** 이벤트·할 일·결제 중 날짜가 있는 것을 한 줄씩 */
 export function scheduleItems(events: EventRow[]): ScheduleItem[] {
   return events.flatMap((e) => {
     const base = { eventId: e.id, eventTitle: e.title, category: e.category };
     return [
-      ...(e.date ? [{ ...base, kind: "event" as const, id: e.id, title: e.title, date: e.date, done: e.done }] : []),
+      ...(e.date
+        ? [{ ...base, kind: "event" as const, id: e.id, title: e.title, date: e.date, done: e.done, startTime: e.startTime, endTime: e.endTime, place: e.place }]
+        : []),
       ...e.tasks.filter((t) => t.date).map((t) => ({ ...base, kind: "task" as const, id: t.id, title: t.content, date: t.date!, done: t.done })),
-      ...e.dues.map((d) => ({ ...base, kind: "due" as const, id: d.id, title: d.title, date: d.date, done: d.done })),
+      ...e.dues.map((d) => ({ ...base, kind: "due" as const, id: d.id, title: d.title, date: d.date, done: d.done, amount: d.amount })),
     ];
   });
 }
 
 /**
- * 곧 할 일: 안 끝난 것 중 밀린 것(지난 날짜) 먼저, 그다음 오늘부터 within일 안. 같은 날이면 이벤트 → 할 일 → 돈 낼 날
+ * 곧 할 일: 안 끝난 것 중 밀린 것(지난 날짜) 먼저, 그다음 오늘부터 within일 안. 같은 날이면 이벤트 → 할 일 → 결제
  */
 export function upcoming(items: ScheduleItem[], now = new Date(), within = 30) {
   const order = { event: 0, task: 1, due: 2 } as const;

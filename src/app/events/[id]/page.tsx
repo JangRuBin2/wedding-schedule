@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { dateLabel, daysUntil, dueLabel, shortDate } from "@/lib/dates";
-import { colorOf } from "@/lib/meta";
+import { dateLabel, daysUntil, dueLabel, fullDate, shortDate, timeLabel } from "@/lib/dates";
+import { colorOf, soft } from "@/lib/meta";
+import { won } from "@/lib/money";
 import { getCategories } from "@/lib/categories";
 import { ADMIN_SECTION, suggestionsFor } from "@/lib/templates";
 import { CategoryDot } from "@/components/CategoryDot";
@@ -29,36 +30,63 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   const days = e.date ? daysUntil(e.date, now) : null;
   const suggestions = suggestionsFor(e.templateKey, e.tasks);
   const base = `/events/${e.id}`;
+  const time = timeLabel(e.startTime, e.endTime);
+  const paid = e.dues.filter((d) => d.done).reduce((n, d) => n + (d.amount ?? 0), 0);
+  const planned = e.dues.filter((d) => !d.done).reduce((n, d) => n + (d.amount ?? 0), 0);
 
   return (
     <main className="space-y-7">
       <header className="space-y-3">
         <div className="flex items-center justify-between">
-          <Link href="/events" className="text-[13px] font-semibold text-sub">‹ 이벤트</Link>
+          <Link href="/" aria-label="캘린더로" className="-ml-1 p-1 text-[24px] leading-none text-ink">‹</Link>
           <Link href={`${base}/edit`} className="text-[13px] font-semibold text-save">수정</Link>
         </div>
-        <div className="hero flex items-start gap-3 p-5">
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-[12px] text-cover-sub">
-              <span className="h-2 w-2 rounded-full ring-2 ring-white/70" style={{ background: color }} aria-hidden />
+        <div className="hero relative space-y-2.5 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: soft(color, 0.35) }}>
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} aria-hidden />
               {e.category}
-            </p>
-            <h1 className={`mt-0.5 text-[22px] leading-tight font-bold ${e.done ? "line-through decoration-2" : ""}`}>{e.title}</h1>
-            <p className="num mt-1.5 text-[13px] text-cover-sub">
-              {e.date ? `${dateLabel(e.date, now)} · ${dueLabel(days!)}` : "날짜 미정"}
-              {e.done && ` · 완료 ${[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}`}
-            </p>
+            </span>
+            <form action={toggleEvent.bind(null, e.id)}>
+              <SubmitButton
+                base=""
+                pendingText="…"
+                className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${e.done ? "bg-card text-sub" : "bg-save text-on-save"}`}
+              >
+                {e.done ? "완료 취소" : "완료"}
+              </SubmitButton>
+            </form>
           </div>
-          <form action={toggleEvent.bind(null, e.id)}>
-            <SubmitButton base="" pendingText="…" className="rounded-full bg-white/90 px-3.5 py-2 text-[13px] font-bold text-save">
-              {e.done ? "완료 취소" : "완료"}
-            </SubmitButton>
-          </form>
+          <h1 className={`text-[22px] leading-tight font-bold ${e.done ? "text-sub line-through decoration-2" : ""}`}>{e.title}</h1>
+          <div className="space-y-1 text-[13px] text-sub">
+            <p className="num">
+              {e.date ? fullDate(e.date) : "날짜 미정"}
+              {time && ` ${time}`}
+              {e.date && !e.done && <b className="ml-1.5 font-semibold text-ink">{dueLabel(days!)}</b>}
+            </p>
+            {e.place && <p>⌖ {e.place}</p>}
+            {e.done && <p>완료 {[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}</p>}
+          </div>
         </div>
         {e.hint && <p className="rounded-xl bg-spend-soft px-3 py-2 text-[13px] text-spend">{e.hint}</p>}
       </header>
 
       {/* 체크리스트 */}
+      {/* 상세 내용 (메모) */}
+      <section>
+        <h2 className="section-title !justify-start">
+          상세 내용
+          <AddLink href={`${base}/memo`}>{e.memo ? "메모 수정" : "메모 쓰기"}</AddLink>
+        </h2>
+        <div className="rounded-[18px] bg-card/60 p-4 ring-1 ring-line">
+          {e.memo ? (
+            <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{e.memo}</p>
+          ) : (
+            <p className="text-[14px] text-sub">아직 적은 내용이 없어요</p>
+          )}
+        </div>
+      </section>
+
       <section>
         <h2 className="section-title !justify-start">
           체크리스트
@@ -116,27 +144,18 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      {/* 메모 */}
+      {/* 결제 */}
       <section>
         <h2 className="section-title !justify-start">
-          메모
-          <AddLink href={`${base}/memo`}>{e.memo ? "메모 수정" : "메모 쓰기"}</AddLink>
-        </h2>
-        <div className="card">
-          {e.memo ? (
-            <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{e.memo}</p>
-          ) : (
-            <p className="text-[14px] text-sub">아직 메모가 없어요</p>
+          결제
+          {(paid > 0 || planned > 0) && (
+            <small className="num">
+              {paid > 0 && `${won(paid)} 냄`}
+              {paid > 0 && planned > 0 && " · "}
+              {planned > 0 && `${won(planned)} 남음`}
+            </small>
           )}
-        </div>
-      </section>
-
-      {/* 돈 낼 날 */}
-      <section>
-        <h2 className="section-title !justify-start">
-          돈 낼 날
-          <small>계약금·잔금 날짜</small>
-          <AddLink href={`${base}/payments/new`}>+ 추가</AddLink>
+          <AddLink href={`${base}/payments/new`}>+ 결제</AddLink>
         </h2>
         <div className="card">
           {e.dues.length > 0 ? (
@@ -160,6 +179,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                           {d.memo && ` · ${d.memo}`}
                         </span>
                       </span>
+                      {d.amount != null && (
+                        <span className={`num shrink-0 text-[14px] font-semibold ${d.done ? "text-sub" : ""}`}>{won(d.amount)}</span>
+                      )}
                     </Link>
                     <form action={toggleDue.bind(null, d.id)}>
                       <SubmitButton
@@ -175,10 +197,14 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               })}
             </ul>
           ) : (
-            <p className="text-[14px] text-sub">계약금·잔금처럼 놓치면 안 되는 날짜를 적어 두면 캘린더에 보여요</p>
+            <p className="text-[14px] text-sub">계약금·잔금을 금액과 날짜로 적어 두면 캘린더와 예산 탭에 보여요</p>
           )}
         </div>
       </section>
+
+      <Link href={`${base}/edit`} className="btn block w-full !py-3.5 text-center">
+        수정하기
+      </Link>
     </main>
   );
 }

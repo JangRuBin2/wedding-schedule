@@ -41,3 +41,27 @@ export function shortDate(d: Date): string {
   const [, m, day] = ymd(d).split("-").map(Number);
   return `${m}/${day}`;
 }
+
+/** 'HH:MM' → '오전 10:00' */
+function ampm(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  return `${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")}`;
+}
+
+/** 시간 칸 표시. 둘 다 없으면 undefined(하루 종일) */
+export function timeLabel(start?: string | null, end?: string | null): string | undefined {
+  if (!start) return undefined;
+  return end ? `${ampm(start)} - ${ampm(end)}` : ampm(start);
+}
+
+/** 'HH:MM' 형식만 받음 (time input 값) */
+export const fromTime = (v: unknown): string | null => (typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : null);
+
+const WD = ["일", "월", "화", "수", "목", "금", "토"];
+
+/** '2026. 7. 01 (수)' */
+export function fullDate(d: Date): string {
+  const s = ymd(d);
+  const [y, m, day] = s.split("-").map(Number);
+  return `${y}. ${m}. ${String(day).padStart(2, "0")} (${WD[new Date(`${s}T00:00:00Z`).getUTCDay()]})`;
+}

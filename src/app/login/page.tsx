@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="flex flex-col items-center gap-3">
         <Logo size={72} />
         <div>
-          <h1 className="text-[26px] font-extrabold">봄날</h1>
+          <h1 className="serif text-[36px] leading-tight">Our Wedding</h1>
           <p className="mt-1 text-[14px] text-sub">결혼 준비 일정, 둘이 같이</p>
         </div>
       </div>

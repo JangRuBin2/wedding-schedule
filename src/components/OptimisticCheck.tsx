@@ -32,7 +32,7 @@ export function OptimisticCheck({
         aria-pressed={optimistic}
         aria-label={optimistic ? `${label} 완료 취소` : `${label} 완료`}
         className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[13px] font-bold transition-colors ${
-          optimistic ? "border-save bg-save text-white" : "border-line bg-card text-sub"
+          optimistic ? "border-save bg-save text-on-save" : "border-line bg-card text-sub"
         }`}
       >
         {optimistic ? "✓" : number}
@@ -46,7 +46,7 @@ export function OptimisticCheck({
       aria-pressed={optimistic}
       aria-label={optimistic ? `${label} 완료 취소` : `${label} 완료`}
       className={`flex h-5 w-5 items-center justify-center rounded-md border-2 text-[11px] font-bold transition-colors ${
-        optimistic ? "border-save bg-save text-white" : "border-line"
+        optimistic ? "border-save bg-save text-on-save" : "border-line"
       }`}
     >
       {optimistic ? "✓" : ""}

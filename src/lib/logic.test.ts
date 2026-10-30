@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, dateLabel, daysUntil, dueLabel, fromYmd, ymd } from "./dates";
+import { addDays, dateLabel, daysUntil, dueLabel, fromTime, fromYmd, fullDate, timeLabel, ymd } from "./dates";
+import { budgetSummary, stackPct } from "./budget";
+import { parseWon, won } from "./money";
 import { scheduleItems, upcoming } from "./upcoming";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, suggestionsFor, templateOffset } from "./templates";
 import { colorOf, DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
@@ -59,10 +61,10 @@ test("추천 할 일: 이미 있는 건 빼고", () => {
 test("카테고리 색: 목록에 없는 이름(지워진 카테고리)은 회색", () => {
   const cats = [{ name: "혼수", color: "#e5544b" }];
   assert.equal(colorOf(cats, "혼수"), "#e5544b");
-  assert.equal(colorOf(cats, "없음"), "#9ca3af");
+  assert.equal(colorOf(cats, "없음"), "#b3a9a6");
 });
 
-test("곧 할 일: 밀린 것 먼저, 30일 안만, 끝난 건 빼고, 같은 날은 이벤트→할 일→돈 낼 날", () => {
+test("곧 할 일: 밀린 것 먼저, 30일 안만, 끝난 건 빼고, 같은 날은 이벤트→할 일→결제", () => {
   const now = new Date("2026-10-30T03:00:00Z");
   const d = (s: string) => fromYmd(s)!;
   const items = scheduleItems([
@@ -92,4 +94,60 @@ test("곧 할 일: 밀린 것 먼저, 30일 안만, 끝난 건 빼고, 같은 �
     ["task:t1:-5", "event:e1:6", "due:d1:6"],
   );
   assert.equal(soon[0].eventTitle, "웨딩홀 계약");
+});
+
+test("예산: 냈어요는 낸 돈, 아직은 낼 돈, 금액 없는 결제는 빼고, 초과 계산", () => {
+  const s = budgetSummary(
+    [
+      { name: "예식", color: "#000", budget: 1_000_000 },
+      { name: "기타", color: "#111", budget: 0 },
+    ],
+    [
+      { category: "예식", amount: 700_000, done: true },
+      { category: "예식", amount: 500_000, done: false },
+      { category: "예식", amount: null, done: false },
+      { category: "기타", amount: 30_000, done: true },
+      { category: "지워짐", amount: 10_000, done: false },
+    ],
+  );
+  assert.deepEqual(
+    s.rows.map((r) => [r.name, r.paid, r.planned, r.over]),
+    [
+      ["예식", 700_000, 500_000, 200_000],
+      ["기타", 30_000, 0, 0],
+    ],
+  );
+  assert.equal(s.total, 1_000_000);
+  assert.equal(s.paid, 730_000);
+  assert.equal(s.planned, 510_000);
+  assert.equal(s.left, -240_000);
+});
+
+test("금액 입력과 표시", () => {
+  assert.equal(parseWon("300,000"), 300_000);
+  assert.equal(parseWon("30만"), 300_000);
+  assert.equal(parseWon("1.5억"), 150_000_000);
+  assert.equal(parseWon("30만원"), 300_000);
+  assert.equal(parseWon(""), null);
+  assert.equal(parseWon("abc"), null);
+  assert.equal(won(300_000), "30만 원");
+  assert.equal(won(1_234_500), "1,234,500원");
+  assert.equal(won(150_000_000), "1억 5,000만 원");
+  assert.equal(won(200_000_000), "2억 원");
+});
+
+test("시간 표시", () => {
+  assert.equal(timeLabel("10:00", "12:00"), "오전 10:00 - 오후 12:00");
+  assert.equal(timeLabel("13:30", null), "오후 1:30");
+  assert.equal(timeLabel(null, "12:00"), undefined);
+  assert.equal(fromTime("25:00"), null);
+  assert.equal(fromTime("09:05"), "09:05");
+  assert.equal(fullDate(fromYmd("2026-07-01")!), "2026. 7. 01 (수)");
+});
+
+test("예산 막대: 낸 돈 + 낼 돈이 100%를 넘지 않음", () => {
+  assert.deepEqual(stackPct(30, 120, 300), [10, 40]);
+  assert.deepEqual(stackPct(250, 100, 300).map(Math.round), [83, 17]);
+  assert.deepEqual(stackPct(400, 100, 300), [100, 0]);
+  assert.deepEqual(stackPct(10, 10, 0), [0, 0]);
 });

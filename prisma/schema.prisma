@@ -25,6 +25,8 @@ model Category {
   id        String   @id @default(cuid())
   name      String   @unique
   color     String
+  /// 이 카테고리에 쓸 예산(원). 0 = 안 정함
+  budget    Int      @default(0)
   order     Int      @default(0)
   createdAt DateTime @default(now())
 }
@@ -37,6 +39,10 @@ model Event {
   /// Category.name (이름을 바꾸면 같이 바꿈)
   category    String    @default("기타")
   date        DateTime?
+  /// 'HH:MM'. 비어 있으면 하루 종일
+  startTime   String?
+  endTime     String?
+  place       String?
   memo        String?
   /// 템플릿 안내 (하객 수 → 웨딩홀·청첩장)
   hint        String?
@@ -69,7 +75,7 @@ model Task {
   @@index([eventId])
 }
 
-/// 돈 낼 날 (계약금·중도금·잔금). 금액은 저장하지 않아요
+/// 결제 (계약금·중도금·잔금). done = 냈어요. 금액은 예산 탭에 쌓임
 model Due {
   id        String    @id @default(cuid())
   event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -77,6 +83,8 @@ model Due {
   /// 잔금, 계약금 …
   title     String
   date      DateTime
+  /// 원. 비어 있으면 날짜만 챙기는 결제
+  amount    Int?
   memo      String?
   done      Boolean   @default(false)
   doneAt    DateTime?

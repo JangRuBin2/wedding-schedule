@@ -1,54 +1,51 @@
 @import "tailwindcss";
 
 /*
- * 모아봄과 같은 톤: 라벤더 종이 + 페리윙클/핑크 그라데이션 표지, 둥근 카드
- * save = 주 색(체크·링크), spend = 밀림·삭제
- * 팔레트: #7B8CFF 페리윙클 · #FFB6D9 핑크 · #E8ECFF 라벤더 · #F8F9FC 종이 · #1F2937 잉크
+ * 봄날 톤: 아이보리 종이 + 모브(회갈보라) 버튼 + 파스텔 카테고리, 영문 제목은 세리프
+ * save = 주 색(체크·링크·버튼), spend = 밀림·삭제, blush = 연분홍 머리 카드
  */
 @theme {
-  --color-paper: #f3f4fb;
+  --color-paper: #f7f4f1;
   --color-card: #ffffff;
-  --color-ink: #1f2937;
-  --color-sub: #6b7280;
-  --color-faint: #9ca3af;
-  --color-line: #eceef7;
-  --color-save: #6170f0;
-  --color-save-soft: #e8ecff;
-  --color-spend: #e0578a;
-  --color-spend-soft: #ffe9f3;
-  --color-warn: #c2841a;
-  --color-pink: #ffb6d9;
-  --color-cover: #8e9bff;
-  --color-cover-ink: #ffffff;
-  --color-cover-sub: rgb(255 255 255 / 0.82);
-  --color-cover-line: rgb(255 255 255 / 0.3);
+  --color-ink: #3b3437;
+  --color-sub: #8b8186;
+  --color-faint: #b8afb3;
+  --color-line: #ece5e1;
+  --color-save: #8d7b83;
+  --color-save-soft: #f2eaed;
+  --color-on-save: #ffffff;
+  --color-spend: #c4686a;
+  --color-spend-soft: #f7e4e3;
+  --color-warn: #b98a4a;
+  --color-pink: #e9b9bf;
+  --color-blush: #f6e6e8;
+  --color-cover-ink: var(--color-ink);
+  --color-cover-sub: var(--color-sub);
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", "Times New Roman", serif;
 }
 
 :root {
-  --hero: linear-gradient(150deg, #8b98ff 0%, #a99ff6 50%, #f3b3d6 100%);
-  --glow: radial-gradient(120% 60% at 0% 0%, #e8ecff 0%, transparent 60%), radial-gradient(90% 50% at 100% 0%, #ffe6f2 0%, transparent 55%);
-  --shadow-card: 0 1px 2px rgb(31 41 55 / 0.03), 0 8px 24px rgb(123 140 255 / 0.08);
+  --shadow-card: 0 1px 2px rgb(59 52 55 / 0.03), 0 6px 18px rgb(59 52 55 / 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-paper: #12131c;
-    --color-card: #1c1e2b;
-    --color-ink: #eef0f8;
-    --color-sub: #a3a8be;
-    --color-faint: #6e7390;
-    --color-line: #2a2d3f;
-    --color-save: #97a3ff;
-    --color-save-soft: #262b4a;
-    --color-spend: #ff8db7;
-    --color-spend-soft: #3a2232;
-    --color-warn: #e8b05a;
-    --color-pink: #e88fbb;
-    --color-cover: #5862c4;
-    --hero: linear-gradient(150deg, #4d58bd 0%, #6a5aae 52%, #a0628c 100%);
-    --glow: radial-gradient(120% 60% at 0% 0%, #23274a 0%, transparent 60%), radial-gradient(90% 50% at 100% 0%, #2f2033 0%, transparent 55%);
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 8px 24px rgb(0 0 0 / 0.18);
+    --color-paper: #1a1718;
+    --color-card: #242022;
+    --color-ink: #f0eaec;
+    --color-sub: #ada2a7;
+    --color-faint: #766c71;
+    --color-line: #352f32;
+    --color-save: #c9b3bc;
+    --color-save-soft: #3a3035;
+    --color-on-save: #1a1718;
+    --color-spend: #e39a9b;
+    --color-spend-soft: #3d2a2b;
+    --color-warn: #ddb57d;
+    --color-pink: #a8737b;
+    --color-blush: #3a2c30;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 6px 18px rgb(0 0 0 / 0.16);
   }
 }
 
@@ -58,8 +55,7 @@
  */
 @layer base {
   body {
-    background: var(--glow) no-repeat, var(--color-paper);
-    background-attachment: fixed;
+    background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -73,12 +69,17 @@
 }
 
 @layer components {
-  /* 그라데이션 표지 (캘린더 위 D-day, 이벤트 상세 머리) */
+  /* 연분홍 머리 카드 (이벤트 상세, 예산 요약) */
   .hero {
-    background: var(--hero);
-    color: var(--color-cover-ink);
-    border-radius: 24px;
-    box-shadow: 0 12px 32px rgb(123 140 255 / 0.28);
+    background: var(--color-blush);
+    color: var(--color-ink);
+    border-radius: 22px;
+  }
+  /* 영문 세리프 제목 (Our Wedding) */
+  .serif {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: 0.01em;
   }
   .num {
     font-variant-numeric: tabular-nums;
@@ -88,8 +89,9 @@
   /* 흰 종이 한 장. 섹션 제목은 바깥에 둬서 카드마다 제목 박히는 느낌을 줄임 */
   .card {
     background: var(--color-card);
-    border-radius: 20px;
+    border-radius: 18px;
     padding: 18px;
+    border: 1px solid var(--color-line);
     box-shadow: var(--shadow-card);
   }
 
@@ -134,9 +136,8 @@
     padding: 11px 18px;
     font-size: 14px;
     font-weight: 700;
-    background: linear-gradient(135deg, #7b8cff 0%, #9aa5ff 100%);
-    color: #fff;
-    box-shadow: 0 6px 16px rgb(123 140 255 / 0.3);
+    background: var(--color-save);
+    color: var(--color-on-save);
   }
   .btn-ghost {
     border-radius: 12px;
@@ -159,10 +160,11 @@
     align-items: center;
     gap: 6px;
     border-radius: 999px;
-    padding: 7px 12px;
+    padding: 7px 13px;
     font-size: 13px;
     font-weight: 600;
-    background: var(--color-paper);
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
     color: var(--color-sub);
     cursor: pointer;
     position: relative;
@@ -174,9 +176,9 @@
     height: 1px;
   }
   .chip:has(input:checked) {
-    background: var(--color-save-soft);
-    color: var(--color-save);
-    box-shadow: inset 0 0 0 1.5px var(--color-save);
+    background: var(--color-blush);
+    color: var(--color-ink);
+    border-color: var(--color-pink);
   }
   .chip:has(input:focus-visible) {
     outline: 2px solid var(--color-save);

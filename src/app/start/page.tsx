@@ -14,8 +14,8 @@ export default async function StartPage() {
       <header className="flex flex-col items-center gap-3 pt-6 text-center">
         <Logo size={64} />
         <div>
-          <h1 className="text-[24px] font-extrabold">봄날</h1>
-          <p className="mt-1 text-[14px] text-sub">결혼 준비 일정, 둘이 같이 챙겨요</p>
+          <h1 className="serif text-[36px] leading-tight">Our Wedding</h1>
+          <p className="mt-1 text-[14px] text-sub">지금, 우리의 결혼을 준비하는 중이에요</p>
         </div>
       </header>
       <form action={start} className="card space-y-5">

@@ -29,7 +29,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="space-y-7">
-      <h1 className="text-[22px] font-bold">설정</h1>
+      <h1 className="pt-2 text-[22px] font-bold">마이</h1>
 
       <section>
         <h2 className="section-title">우리 결혼식</h2>
@@ -59,12 +59,12 @@ export default async function SettingsPage() {
                 name="name"
                 value={n}
                 aria-pressed={me === n}
-                className={`btn-ghost ${me === n ? "!bg-save !text-white" : "!bg-paper"}`}
+                className={`btn-ghost ${me === n ? "!bg-save !text-on-save" : "!bg-paper"}`}
               >
                 {n}
               </button>
             ))}
-            {me && !names.includes(me) && <span className="btn-ghost !bg-save !text-white">{me}</span>}
+            {me && !names.includes(me) && <span className="btn-ghost !bg-save !text-on-save">{me}</span>}
             {me && (
               <button name="name" value="" className="ml-auto text-[12px] font-medium text-sub">
                 선택 해제

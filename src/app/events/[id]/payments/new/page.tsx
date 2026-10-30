@@ -13,10 +13,10 @@ export default async function NewDuePage({ params }: { params: Promise<{ id: str
   if (!e) notFound();
   return (
     <main className="space-y-6">
-      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title="돈 낼 날 추가" sub={e.title} />
+      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title="결제 추가" sub={e.title} />
       <form action={addDue} className="card space-y-5">
         <input type="hidden" name="eventId" value={e.id} />
-        <DueFields />
+        <DueFields isNew />
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>
     </main>

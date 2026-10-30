@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { addDays, fromYmd } from "@/lib/dates";
+import { addDays, fromTime, fromYmd } from "@/lib/dates";
+import { parseWon } from "@/lib/money";
 import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
@@ -112,11 +113,18 @@ export async function addTemplateEvents() {
 
 // ── 이벤트 ──
 
+/** 이벤트 폼 값. 하루 종일이면 시간을 비움. 메모 칸이 없는 폼이면 메모는 그대로 둠 */
 async function eventFields(form: FormData) {
+  const allDay = form.get("allDay") === "on";
+  const startTime = allDay ? null : fromTime(form.get("startTime"));
   return {
     title: text(form, "title", 100),
     category: await validCategory(form.get("category")),
     date: form.get("undated") === "on" ? null : fromYmd(form.get("date")),
+    startTime,
+    endTime: startTime ? fromTime(form.get("endTime")) : null,
+    place: text(form, "place", 100) || null,
+    ...(form.has("memo") ? { memo: text(form, "memo", 5000) || null } : {}),
   };
 }
 
@@ -142,6 +150,22 @@ export async function deleteEvent(id: string) {
   await prisma.event.delete({ where: { id } });
   refresh();
   redirect("/events");
+}
+
+const idList = (ids: unknown) => (Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string").slice(0, 500) : []);
+
+/** 리스트 탭에서 여러 개 골라 지우기 (할 일·결제도 같이 지워짐) */
+export async function deleteEvents(ids: string[]) {
+  const list = idList(ids);
+  if (list.length) await prisma.event.deleteMany({ where: { id: { in: list } } });
+  refresh();
+}
+
+/** 여러 개 골라 완료. 이미 끝난 건 그대로 (끝낸 사람·날짜 유지) */
+export async function completeEvents(ids: string[]) {
+  const list = idList(ids);
+  if (list.length) await prisma.event.updateMany({ where: { id: { in: list }, done: false }, data: { done: true, doneAt: new Date(), doneBy: await getMe() } });
+  refresh();
 }
 
 export async function toggleEvent(id: string) {
@@ -223,25 +247,32 @@ export async function toggleTask(id: string) {
   refresh();
 }
 
-// ── 돈 낼 날 ──
+// ── 결제 ──
 
 function dueFields(form: FormData) {
-  return { title: text(form, "title", 60), date: fromYmd(form.get("date")), memo: text(form, "memo", 500) || null };
+  return {
+    title: text(form, "title", 60),
+    date: fromYmd(form.get("date")),
+    amount: parseWon(form.get("amount")),
+    memo: text(form, "memo", 500) || null,
+  };
 }
 
 export async function addDue(form: FormData) {
   const eventId = text(form, "eventId", 40);
-  const { title, date, memo } = dueFields(form);
+  const { title, date, amount, memo } = dueFields(form);
   if (!title || !date) return;
-  await prisma.due.create({ data: { eventId, title, date, memo } });
+  // '이미 냈어요'면 바로 낸 것으로
+  const paid = form.get("paid") === "on" ? await checkData(false) : {};
+  await prisma.due.create({ data: { eventId, title, date, amount, memo, ...paid } });
   refresh();
   redirect(`/events/${eventId}`);
 }
 
 export async function updateDue(form: FormData) {
-  const { title, date, memo } = dueFields(form);
+  const { title, date, amount, memo } = dueFields(form);
   if (!title || !date) return;
-  const due = await prisma.due.update({ where: { id: text(form, "id", 40) }, data: { title, date, memo } });
+  const due = await prisma.due.update({ where: { id: text(form, "id", 40) }, data: { title, date, amount, memo } });
   refresh();
   goBack(form, `/events/${due.eventId}`);
 }
@@ -308,6 +339,18 @@ export async function deleteCategory(id: string) {
   ]);
   refresh();
   redirect("/settings/categories");
+}
+
+// ── 예산 ──
+
+/** 카테고리별 예산 저장. 칸 이름은 budget:<카테고리 id>, 비우면 0(안 정함) */
+export async function saveBudgets(form: FormData) {
+  const cats = await getCategories();
+  await prisma.$transaction(
+    cats.map((c) => prisma.category.update({ where: { id: c.id }, data: { budget: parseWon(form.get(`budget:${c.id}`)) ?? 0 } })),
+  );
+  refresh();
+  redirect("/budget");
 }
 
 // ── 카카오 로그인 사용자 관리 ──

@@ -5,9 +5,9 @@ import { colorOf } from "@/lib/meta";
 import { getCategories } from "@/lib/categories";
 import { CategoryDot } from "@/components/CategoryDot";
 import { LinkPending } from "@/components/LinkPending";
-import { OptimisticCheck } from "@/components/OptimisticCheck";
+import { EventManager, type ManagedEvent } from "@/components/EventManager";
 import { SubmitButton } from "@/components/SubmitButton";
-import { fillDates, toggleEvent } from "../actions";
+import { fillDates } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,35 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
 
   const canFill = !!wedding?.date && all.some((e) => !e.date && e.templateKey);
   const filterHref = (c: string | null) => (c ? `/events?cat=${encodeURIComponent(c)}` : "/events");
+  const rows: ManagedEvent[] = events.map((e) => {
+    const days = e.date ? daysUntil(e.date, now) : null;
+    const tasksDone = e.tasks.filter((t) => t.done).length;
+    const openDues = e.dues.filter((d) => !d.done).length;
+    return {
+      id: e.id,
+      title: e.title,
+      color: colorOf(cats, e.category),
+      done: e.done,
+      overdue: !e.done && days != null && days < 0,
+      sub: [
+        e.category,
+        e.done
+          ? `완료 ${[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}`
+          : e.date
+            ? `${dateLabel(e.date, now)} · ${dueLabel(days!)}`
+            : "날짜 미정",
+        e.tasks.length > 0 && `할 일 ${tasksDone}/${e.tasks.length}`,
+        openDues > 0 && `결제 ${openDues}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  });
 
   return (
     <main className="space-y-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-[22px] font-bold">이벤트</h1>
+        <h1 className="text-[22px] font-bold">리스트</h1>
         <Link href="/events/new" className="btn relative !px-4 !py-2">
           + 이벤트
           <LinkPending />
@@ -57,39 +81,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
       )}
 
       {events.length > 0 ? (
-        <ol className="card !py-2">
-          {events.map((e, i) => {
-            const tasksDone = e.tasks.filter((t) => t.done).length;
-            const days = e.date ? daysUntil(e.date, now) : null;
-            return (
-              <li key={e.id} className="relative flex gap-3">
-                {i < events.length - 1 && <span className="absolute top-10 bottom-0 left-[15px] w-[2px] bg-line" aria-hidden />}
-                <div className="relative z-[1] py-2">
-                  <OptimisticCheck variant="step" done={e.done} action={toggleEvent.bind(null, e.id)} label={e.title} number={i + 1} />
-                </div>
-                <Link href={`/events/${e.id}`} className="flex min-w-0 flex-1 items-center gap-2 py-2.5">
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-[15px] font-semibold ${e.done ? "text-sub line-through decoration-1" : ""}`}>
-                      {e.title}
-                    </span>
-                    <span className="num flex items-center gap-1.5 truncate text-[12px] text-sub">
-                      <CategoryDot color={colorOf(cats, e.category)} className="h-1.5 w-1.5" />
-                      {e.done
-                        ? `완료 ${[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}`
-                        : e.date
-                          ? `${dateLabel(e.date, now)} · ${dueLabel(days!)}`
-                          : "날짜 미정"}
-                      {e.tasks.length > 0 && ` · 할 일 ${tasksDone}/${e.tasks.length}`}
-                      {e.dues.some((d) => !d.done) && ` · 돈 낼 날 ${e.dues.filter((d) => !d.done).length}`}
-                      {e.memo && " · 메모"}
-                    </span>
-                  </span>
-                  <span className="text-faint" aria-hidden>›</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ol>
+        <EventManager events={rows} />
       ) : (
         <p className="card text-center text-[14px] text-sub">{cat ? `${cat} 이벤트가 없어요` : "아직 이벤트가 없어요"}</p>
       )}
@@ -102,8 +94,8 @@ function FilterChip({ href, active, children }: { href: string; active: boolean;
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
-      className={`relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap ${
-        active ? "bg-save text-white" : "bg-card text-sub shadow-[var(--shadow-card)]"
+      className={`relative flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold whitespace-nowrap ${
+        active ? "border-save bg-save text-on-save" : "border-line bg-card text-sub"
       }`}
     >
       {children}

@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
+import { DEFAULT_CATEGORIES, FALLBACK_CATEGORY, OLD_COLORS } from "./meta";
 
 const findAll = () => prisma.category.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] });
 
@@ -10,10 +10,16 @@ export async function getCategories() {
     await prisma.category.createMany({ data: DEFAULT_CATEGORIES.map((c, i) => ({ ...c, order: i })), skipDuplicates: true });
     return findAll();
   }
+  // 예전 테마 색이 남아 있으면 새 팔레트로 (한 번 바꾸면 다시는 안 걸림)
+  const old = list.filter((c) => OLD_COLORS[c.color]);
+  if (old.length) {
+    await prisma.$transaction(old.map((c) => prisma.category.update({ where: { id: c.id }, data: { color: OLD_COLORS[c.color] } })));
+    return getCategories();
+  }
   if (!list.some((c) => c.name === FALLBACK_CATEGORY)) {
     await prisma.category.upsert({
       where: { name: FALLBACK_CATEGORY },
-      create: { name: FALLBACK_CATEGORY, color: "#9ca3af", order: 999 },
+      create: { name: FALLBACK_CATEGORY, color: "#b3a9a6", order: 999 },
       update: {},
     });
     return findAll();

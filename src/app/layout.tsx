@@ -13,8 +13,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f4fb" },
-    { media: "(prefers-color-scheme: dark)", color: "#12131c" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f4f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1718" },
   ],
 };
 
@@ -26,6 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" />
       </head>
       <body className="min-h-dvh">
         <Nav />
