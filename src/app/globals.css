@@ -29,8 +29,33 @@
   --shadow-card: 0 1px 2px rgb(59 52 55 / 0.03), 0 6px 18px rgb(59 52 55 / 0.05);
 }
 
+/*
+ * 어두운 테마. 마이 → 화면 테마에서 고르면 <html data-theme="light|dark"> 가 붙고(기기마다 쿠키),
+ * 안 고르면(시스템) 기기 설정을 따라감. 같은 값을 두 번 적는 건 CSS 미디어 쿼리 안에 선택자를 합칠 수 없어서
+ */
+:root {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --color-paper: #1a1718;
+  --color-card: #242022;
+  --color-ink: #f0eaec;
+  --color-sub: #ada2a7;
+  --color-faint: #766c71;
+  --color-line: #352f32;
+  --color-save: #c9b3bc;
+  --color-save-soft: #3a3035;
+  --color-on-save: #1a1718;
+  --color-spend: #e39a9b;
+  --color-spend-soft: #3d2a2b;
+  --color-warn: #ddb57d;
+  --color-pink: #a8737b;
+  --color-blush: #3a2c30;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 6px 18px rgb(0 0 0 / 0.16);
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-paper: #1a1718;
     --color-card: #242022;
     --color-ink: #f0eaec;
@@ -46,6 +71,7 @@
     --color-pink: #a8737b;
     --color-blush: #3a2c30;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 6px 18px rgb(0 0 0 / 0.16);
+    color-scheme: dark;
   }
 }
 
@@ -264,5 +290,37 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--color-ink);
+  }
+
+  /* 색 슬라이더 (예산 나누기). --c: 카테고리 색, --p: 채운 비율 */
+  .range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--c) var(--p), var(--color-line) var(--p));
+    cursor: pointer;
+  }
+  .range:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--color-card);
+    border: 4px solid var(--c);
+    box-shadow: 0 2px 8px rgb(59 52 55 / 0.2);
+  }
+  .range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-card);
+    border: 4px solid var(--c);
+    box-shadow: 0 2px 8px rgb(59 52 55 / 0.2);
   }
 }

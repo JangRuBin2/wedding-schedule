@@ -6,6 +6,7 @@ import { daysUntil, dueLabel, shortDate } from "@/lib/dates";
 import { colorOf, soft } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { CategoryDot } from "@/components/CategoryDot";
+import { UsageBar } from "@/components/UsageBar";
 import { SubmitButton } from "@/components/SubmitButton";
 import { toggleDue } from "../actions";
 
@@ -37,7 +38,7 @@ export default async function BudgetPage() {
       <header className="flex items-center justify-between pt-2">
         <h1 className="text-[22px] font-bold">예산</h1>
         <Link href="/budget/edit" className="text-[13px] font-semibold text-save">
-          예산 정하기
+          {sum.total ? "예산 나누기" : "예산 정하기"}
         </Link>
       </header>
 
@@ -46,12 +47,7 @@ export default async function BudgetPage() {
           <p className="text-[13px] text-sub">총 예산</p>
           <p className="num text-[28px] leading-tight font-bold">{sum.total ? won(sum.total) : "아직 안 정함"}</p>
         </div>
-        {sum.total > 0 && (
-          <div className="flex h-2.5 overflow-hidden rounded-full bg-card">
-            <span className="h-full bg-save" style={{ width: `${stackPct(sum.paid, sum.planned, sum.total)[0]}%` }} />
-            <span className="h-full bg-save/35" style={{ width: `${stackPct(sum.paid, sum.planned, sum.total)[1]}%` }} />
-          </div>
-        )}
+        {sum.total > 0 && <UsageBar rows={sum.rows} total={sum.total} />}
         <dl className="grid grid-cols-3 gap-2 text-center">
           <Stat label="낸 돈" value={won(sum.paid)} />
           <Stat label="낼 돈" value={won(sum.planned)} />
@@ -61,7 +57,7 @@ export default async function BudgetPage() {
 
       {sum.total === 0 && (
         <Link href="/budget/edit" className="card block text-[14px] text-sub">
-          카테고리별로 예산을 정하면 얼마나 썼는지, 얼마나 남았는지 한눈에 볼 수 있어요 <b className="font-semibold text-save">예산 정하기 ›</b>
+          총예산을 정하고 카테고리별로 나누면 얼마나 썼는지, 얼마나 남았는지 한눈에 볼 수 있어요 <b className="font-semibold text-save">예산 나누기 ›</b>
         </Link>
       )}
 

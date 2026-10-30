@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCategories } from "@/lib/categories";
+import { getTheme, THEMES } from "@/lib/theme";
 import { getWedding } from "@/lib/data";
 import { dateLabel } from "@/lib/dates";
 import { currentSession, getMe } from "@/lib/me";
@@ -15,12 +16,13 @@ const STATUS = { APPROVED: "승인됨", PENDING: "승인 대기", REJECTED: "거
 
 export default async function SettingsPage() {
   const kakao = kakaoEnabled();
-  const [wedding, me, session, templateCount, cats] = await Promise.all([
+  const [wedding, me, session, templateCount, cats, theme] = await Promise.all([
     getWedding(),
     getMe(),
     currentSession(),
     prisma.event.count({ where: { templateKey: { not: null } } }),
     getCategories(),
+    getTheme(),
   ]);
   const users = kakao ? await prisma.user.findMany({ orderBy: { createdAt: "asc" } }) : [];
   const isOwner = users.some((u) => u.id === session?.uid && u.role === "OWNER");
@@ -42,6 +44,9 @@ export default async function SettingsPage() {
           </Row>
           <Row href="/settings/categories" label="카테고리">
             {cats.map((c) => c.name).join(" · ")}
+          </Row>
+          <Row href="/settings/theme" label="화면 테마">
+            {THEMES[theme]}
           </Row>
         </ul>
       </section>

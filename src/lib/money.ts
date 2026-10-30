@@ -14,13 +14,19 @@ export function won(n: number): string {
   return `${sign}${abs.toLocaleString("ko-KR")}원`;
 }
 
-/** 폼 금액 → 원. '30만', '300,000', '300000' 다 받음. 비었거나 잘못되면 null */
-export function parseWon(v: unknown): number | null {
+/**
+ * 만 원 단위 입력 → 원. '30' = 30만 원, '3.5' = 3만 5천 원, '1,200' = 1,200만 원, '1억' = 1억 원도 받음.
+ * 비었거나 잘못되면 null
+ */
+export function parseMan(v: unknown): number | null {
   if (typeof v !== "string") return null;
-  const s = v.replace(/[,\s원]/g, "");
+  const s = v.replace(/[,\s원]/g, "").replace(/만$/, "");
   if (!s) return null;
-  const m = s.match(/^(\d+(?:\.\d+)?)(억|만)?$/);
+  const m = s.match(/^(\d+(?:\.\d{1,4})?)(억)?$/);
   if (!m) return null;
-  const n = Number(m[1]) * (m[2] === "억" ? 100_000_000 : m[2] === "만" ? 10_000 : 1);
-  return Number.isFinite(n) && n >= 0 && n <= 10_000_000_000 ? Math.round(n) : null;
+  const n = Number(m[1]) * (m[2] ? 100_000_000 : 10_000);
+  return Number.isFinite(n) && n >= 0 && n <= 2_000_000_000 ? Math.round(n) : null;
 }
+
+/** 원 → 만 원 입력칸에 넣을 값 ('300000' → '30', '35000' → '3.5') */
+export const toManInput = (won: number | null | undefined) => (won ? String(Math.round((won / 10_000) * 10_000) / 10_000) : "");

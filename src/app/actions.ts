@@ -5,7 +5,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { addDays, fromTime, fromYmd } from "@/lib/dates";
-import { parseWon } from "@/lib/money";
+import { parseMan } from "@/lib/money";
+import { checkPlan } from "@/lib/allocate";
+import { THEME_COOKIE } from "@/lib/theme";
 import { blobsOfEvents, deleteBlobs, storePhoto } from "@/lib/photos";
 import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
@@ -87,6 +89,16 @@ export async function saveNames(form: FormData) {
   await prisma.wedding.upsert({ where: { id: 1 }, create: { id: 1, names }, update: { names } });
   refresh();
   goBack(form, "/settings");
+}
+
+/** 화면 테마 (이 기기에만). system 이면 쿠키를 지워 기기 설정을 따라감 */
+export async function saveTheme(form: FormData) {
+  const theme = form.get("theme");
+  const jar = await cookies();
+  if (theme === "light" || theme === "dark") jar.set(THEME_COOKIE, theme, { maxAge: 365 * 86400, sameSite: "lax", path: "/" });
+  else jar.delete(THEME_COOKIE);
+  refresh();
+  redirect("/settings");
 }
 
 /** 비밀번호로 잠글 때 '이 기기는 누구' (체크한 사람 기록용) */
@@ -311,7 +323,7 @@ function dueFields(form: FormData) {
   return {
     title: text(form, "title", 60),
     date: fromYmd(form.get("date")),
-    amount: parseWon(form.get("amount")),
+    amount: parseMan(form.get("amount")),
     memo: text(form, "memo", 500) || null,
   };
 }
@@ -401,12 +413,17 @@ export async function deleteCategory(id: string) {
 
 // ── 예산 ──
 
-/** 카테고리별 예산 저장. 칸 이름은 budget:<카테고리 id>, 비우면 0(안 정함) */
-export async function saveBudgets(form: FormData) {
+/**
+ * 예산 나누기 저장. 카테고리별 금액(만 원 정수)을 받아 원으로 저장.
+ * 화면에서 막아도 여기서 다시 확인 (총예산 100만 원 이상, 만 원 단위, 모르는 카테고리는 무시)
+ */
+export async function saveBudgetPlan(plan: { id: string; man: number }[]) {
   const cats = await getCategories();
-  await prisma.$transaction(
-    cats.map((c) => prisma.category.update({ where: { id: c.id }, data: { budget: parseWon(form.get(`budget:${c.id}`)) ?? 0 } })),
-  );
+  const byId = new Map((Array.isArray(plan) ? plan : []).map((p) => [String(p?.id), Number(p?.man)]));
+  const amounts = cats.map((c) => byId.get(c.id) ?? 0);
+  const problem = checkPlan(amounts);
+  if (problem) throw new Error(problem);
+  await prisma.$transaction(cats.map((c, i) => prisma.category.update({ where: { id: c.id }, data: { budget: amounts[i] * 10_000 } })));
   refresh();
   redirect("/budget");
 }

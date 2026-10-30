@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { safeBack } from "@/lib/back";
 import { ymd } from "@/lib/dates";
+import { toManInput } from "@/lib/money";
 import { DueFields } from "@/components/DueFields";
 import { SubmitButton } from "@/components/SubmitButton";
 import { WriteHeader } from "@/components/WriteHeader";
@@ -20,7 +21,7 @@ export default async function EditDuePage({ params, searchParams }: { params: Pr
       <form action={updateDue} className="card space-y-5">
         <input type="hidden" name="id" value={d.id} />
         <input type="hidden" name="back" value={back} />
-        <DueFields title={d.title} amount={d.amount != null ? String(d.amount) : ""} date={ymd(d.date)} memo={d.memo ?? ""} />
+        <DueFields title={d.title} amount={toManInput(d.amount)} date={ymd(d.date)} memo={d.memo ?? ""} />
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>
       <form action={deleteDue.bind(null, d.id, back)} className="text-center">

@@ -1,6 +1,6 @@
 import { DUE_SUGGESTIONS } from "@/lib/meta";
 
-/** 결제 추가·수정 공통 칸: 무엇, 금액, 날짜, 메모 (+ 추가할 때만 '이미 냈어요') */
+/** 결제 추가·수정 공통 칸: 무엇, 금액(만 원 단위), 날짜, 메모 (+ 추가할 때만 '이미 냈어요') */
 export function DueFields({
   title = "",
   amount = "",
@@ -26,9 +26,12 @@ export function DueFields({
         </datalist>
       </label>
       <label className="block space-y-1.5">
-        <span className="label">금액 (선택)</span>
-        <input name="amount" defaultValue={amount} placeholder="예: 300000 또는 30만" inputMode="numeric" maxLength={20} className="input num" />
-        <span className="block text-[12px] text-sub">금액을 넣으면 예산 탭에 쌓여요</span>
+        <span className="label">금액 (선택, 만 원)</span>
+        <span className="relative block">
+          <input name="amount" defaultValue={amount} placeholder="예: 30" inputMode="decimal" maxLength={20} className="input num pr-14" />
+          <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">만 원</span>
+        </span>
+        <span className="block text-[12px] text-sub">30 = 30만 원, 3.5 = 3만 5천 원. 넣으면 예산 탭에 쌓여요</span>
       </label>
       <label className="block space-y-1.5">
         <span className="label">날짜</span>

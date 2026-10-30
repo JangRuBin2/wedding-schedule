@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { addDays, dateLabel, daysUntil, dueLabel, fromTime, fromYmd, fullDate, timeLabel, ymd } from "./dates";
 import { budgetSummary, stackPct } from "./budget";
-import { parseWon, won } from "./money";
+import { won } from "./money";
 import { scheduleItems, upcoming } from "./upcoming";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, suggestionsFor, templateOffset } from "./templates";
 import { colorOf, DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
@@ -123,13 +123,7 @@ test("예산: 냈어요는 낸 돈, 아직은 낼 돈, 금액 없는 결제는 �
   assert.equal(s.left, -240_000);
 });
 
-test("금액 입력과 표시", () => {
-  assert.equal(parseWon("300,000"), 300_000);
-  assert.equal(parseWon("30만"), 300_000);
-  assert.equal(parseWon("1.5억"), 150_000_000);
-  assert.equal(parseWon("30만원"), 300_000);
-  assert.equal(parseWon(""), null);
-  assert.equal(parseWon("abc"), null);
+test("금액 표시", () => {
   assert.equal(won(300_000), "30만 원");
   assert.equal(won(1_234_500), "1,234,500원");
   assert.equal(won(150_000_000), "1억 5,000만 원");
@@ -150,4 +144,47 @@ test("예산 막대: 낸 돈 + 낼 돈이 100%를 넘지 않음", () => {
   assert.deepEqual(stackPct(250, 100, 300).map(Math.round), [83, 17]);
   assert.deepEqual(stackPct(400, 100, 300), [100, 0]);
   assert.deepEqual(stackPct(10, 10, 0), [0, 0]);
+});
+
+test("예산 나누기: 합계가 늘 총예산과 같고, 100만 원 미만은 막음", async () => {
+  const { allocate, movePct, recommendedPct, checkPlan } = await import("./allocate");
+  // 예전 버그: 1만 원을 6칸에 나누면 반올림으로 합계가 넘었음
+  const pct = recommendedPct(["예식", "스드메", "예물·예단", "신혼여행", "신혼집", "기타"]);
+  assert.equal(Math.round(pct.reduce((a, b) => a + b, 0)), 100);
+  for (const total of [1, 7, 100, 333, 5000, 12345]) {
+    const a = allocate(total, pct);
+    assert.equal(a.reduce((x, y) => x + y, 0), total, `total ${total}`);
+    assert.ok(a.every((x) => Number.isInteger(x) && x >= 0));
+  }
+  assert.deepEqual(allocate(5000, pct), [2500, 400, 600, 500, 750, 250]);
+  assert.deepEqual(allocate(0, pct), [0, 0, 0, 0, 0, 0]);
+  assert.equal(checkPlan(allocate(1, pct)), "총예산은 100만 원부터 정할 수 있어요");
+  assert.equal(checkPlan(allocate(100, pct)), null);
+  assert.equal(checkPlan([50, 49.5]), "금액은 만 원 단위로 적어 주세요");
+  assert.equal(checkPlan([150000, 60000]), "총예산이 너무 커요 (20억 원까지)");
+  // 직접 만든 카테고리는 추천 0, 아는 이름이 없으면 똑같이
+  assert.deepEqual(recommendedPct(["예식", "혼수"]), [100, 0]);
+  assert.deepEqual(recommendedPct(["가", "나"]), [50, 50]);
+  // 슬라이더: 잠근 칸 그대로, 합계 100
+  const moved = movePct([50, 30, 20], 0, 70, [false, true, false]);
+  assert.deepEqual(moved.map(Math.round), [70, 30, 0]);
+  const moved2 = movePct([50, 30, 20], 0, 80, [false, false, false]);
+  assert.deepEqual(moved2.map((x) => Math.round(x * 10) / 10), [80, 12, 8]);
+  assert.deepEqual(movePct([50, 50], 0, 80, [false, true]), [50, 50]);
+  assert.equal(Math.round(movePct([40, 30, 30], 1, 100, [true, false, false]).reduce((a, b) => a + b, 0)), 100);
+});
+
+test("만 원 단위 입력", async () => {
+  const { parseMan, toManInput } = await import("./money");
+  assert.equal(parseMan("30"), 300_000);
+  assert.equal(parseMan("3.5"), 35_000);
+  assert.equal(parseMan("1,200"), 12_000_000);
+  assert.equal(parseMan("30만"), 300_000);
+  assert.equal(parseMan("1억"), 100_000_000);
+  assert.equal(parseMan(""), null);
+  assert.equal(parseMan("abc"), null);
+  assert.equal(parseMan("300000"), null); // 30억 → 범위 밖 (원으로 잘못 적은 경우를 걸러냄)
+  assert.equal(toManInput(300_000), "30");
+  assert.equal(toManInput(35_000), "3.5");
+  assert.equal(toManInput(null), "");
 });

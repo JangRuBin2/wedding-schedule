@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "봄날",
@@ -9,18 +10,32 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f4f1" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1718" },
-  ],
-};
+const LIGHT = "#f7f4f1";
+const DARK = "#1a1718";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** 휴대폰 상단 막대 색도 고른 테마에 맞춤 */
+export async function generateViewport(): Promise<Viewport> {
+  const theme = await getTheme();
+  return {
+    width: "device-width",
+    initialScale: 1,
+    themeColor:
+      theme === "system"
+        ? [
+            { media: "(prefers-color-scheme: light)", color: LIGHT },
+            { media: "(prefers-color-scheme: dark)", color: DARK },
+          ]
+        : theme === "dark"
+          ? DARK
+          : LIGHT,
+  };
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const theme = await getTheme();
   return (
-    <html lang="ko">
+    // 고른 테마는 서버에서 바로 붙여서 처음 그릴 때부터 맞는 색 (깜빡임 없음)
+    <html lang="ko" data-theme={theme === "system" ? undefined : theme}>
       <head>
         <link
           rel="stylesheet"
