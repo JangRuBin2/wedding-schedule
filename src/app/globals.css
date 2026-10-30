@@ -73,7 +73,7 @@
 }
 
 @layer components {
-  /* 그라데이션 표지 (홈 D-day, 이벤트 상세 머리) */
+  /* 그라데이션 표지 (캘린더 위 D-day, 이벤트 상세 머리) */
   .hero {
     background: var(--hero);
     color: var(--color-cover-ink);

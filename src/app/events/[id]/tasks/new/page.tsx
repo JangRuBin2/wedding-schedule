@@ -24,7 +24,7 @@ export default async function NewTaskPage({ params }: { params: Promise<{ id: st
         <label className="block space-y-1">
           <span className="label">날짜 (선택)</span>
           <input name="date" type="date" className="input" />
-          <span className="block text-[12px] text-sub">날짜를 넣으면 홈의 곧 할 일과 캘린더에도 보여요</span>
+          <span className="block text-[12px] text-sub">날짜를 넣으면 캘린더에도 보여요</span>
         </label>
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
         {suggestions.length > 0 && (

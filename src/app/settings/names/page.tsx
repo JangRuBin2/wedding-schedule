@@ -9,7 +9,7 @@ export default async function NamesPage() {
   const names = (await getWedding())?.names ?? [];
   return (
     <main className="space-y-6">
-      <WriteHeader back="/settings" backLabel="취소" title="우리 둘 이름" sub="홈 위쪽에 보이고, 비밀번호로 잠글 때 '이 기기는 누구'에서 골라요" />
+      <WriteHeader back="/settings" backLabel="취소" title="우리 둘 이름" sub="캘린더 위쪽에 보이고, 비밀번호로 잠글 때 '이 기기는 누구'에서 골라요" />
       <form action={saveNames} className="card space-y-5">
         <label className="block space-y-1">
           <span className="label">한 사람</span>

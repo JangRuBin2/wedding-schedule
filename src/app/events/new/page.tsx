@@ -16,7 +16,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: SP 
   const date = typeof sp.date === "string" && fromYmd(sp.date) ? sp.date : "";
   return (
     <main className="space-y-6">
-      <WriteHeader back={date ? "/events?view=calendar" : "/events"} backLabel="취소" title="이벤트 만들기" sub="저장하면 이 이벤트 화면으로 가서 체크리스트와 메모를 이어서 채울 수 있어요" />
+      <WriteHeader back={date ? "/" : "/events"} backLabel="취소" title="이벤트 만들기" sub="저장하면 이 이벤트 화면으로 가서 체크리스트와 메모를 이어서 채울 수 있어요" />
       <form action={createEvent} className="card space-y-5">
         <label className="block space-y-1">
           <span className="label">이름</span>

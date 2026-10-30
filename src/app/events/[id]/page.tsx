@@ -173,7 +173,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               })}
             </ul>
           ) : (
-            <p className="text-[14px] text-sub">계약금·잔금처럼 놓치면 안 되는 날짜를 적어 두면 홈과 캘린더에 보여요</p>
+            <p className="text-[14px] text-sub">계약금·잔금처럼 놓치면 안 되는 날짜를 적어 두면 캘린더에 보여요</p>
           )}
         </div>
       </section>

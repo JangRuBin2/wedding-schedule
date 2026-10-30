@@ -1,93 +1,80 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getEvents, getWedding } from "@/lib/data";
-import { dateLabel, daysUntil } from "@/lib/dates";
+import { dateLabel, daysUntil, ymd } from "@/lib/dates";
+import { categoryColor } from "@/lib/meta";
 import { getMe } from "@/lib/me";
 import { kakaoEnabled } from "@/lib/session";
 import { scheduleItems, upcoming } from "@/lib/upcoming";
+import { Calendar, type CalItem } from "@/components/Calendar";
 import { MePicker } from "@/components/MePicker";
-import { ScheduleRow } from "@/components/ScheduleRow";
 
 export const dynamic = "force-dynamic";
 
+/** 홈 = 캘린더. 위에 D-day·진행을 한 줄로, 밀린 일정이 있으면 첫 번째로 바로 가는 링크 */
 export default async function HomePage() {
   const now = new Date();
   const [wedding, events, me] = await Promise.all([getWedding(), getEvents(), getMe()]);
   if (!wedding) redirect("/start");
 
+  const items = scheduleItems(events);
+  const calItems: CalItem[] = items.map((i) => ({
+    key: `${i.kind}-${i.id}`,
+    ymd: ymd(i.date),
+    kind: i.kind,
+    label: i.title,
+    sub: i.kind === "event" ? i.category : i.eventTitle,
+    href: `/events/${i.eventId}`,
+    color: categoryColor(i.category),
+    done: i.done,
+  }));
+  const overdue = upcoming(items, now).filter((i) => i.days < 0);
   const done = events.filter((e) => e.done).length;
-  const soon = upcoming(scheduleItems(events), now);
-  const overdue = soon.filter((i) => i.days < 0).length;
-  const next = events.find((e) => !e.done);
   const dday = wedding.date ? daysUntil(wedding.date, now) : null;
 
   return (
-    <main className="space-y-7">
-      <section className="hero p-5">
-        <p className="text-[13px] text-cover-sub">{wedding.names.length === 2 ? `${wedding.names[0]} ♥ ${wedding.names[1]}` : "우리 결혼식"}</p>
-        {wedding.date ? (
-          <>
-            <p className="num mt-1 text-[34px] leading-tight font-extrabold">
+    <main className="space-y-5">
+      <header className="hero flex items-center gap-4 px-5 py-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] text-cover-sub">
+            {wedding.names.length === 2 ? `${wedding.names[0]} ♥ ${wedding.names[1]}` : "우리 결혼식"}
+            {wedding.date && ` · ${dateLabel(wedding.date, now)}`}
+            {wedding.place && ` · ${wedding.place}`}
+          </p>
+          {wedding.date ? (
+            <p className="num text-[24px] leading-tight font-extrabold">
               {dday! > 0 ? `D-${dday}` : dday === 0 ? "오늘이에요!" : `결혼 ${-dday! + 1}일째`}
             </p>
-            <p className="mt-1 text-[14px] text-cover-sub">
-              {dateLabel(wedding.date, now)}
-              {wedding.place && ` · ${wedding.place}`}
-            </p>
-          </>
-        ) : (
-          <Link href="/settings/wedding?back=/" className="mt-2 inline-block rounded-full bg-white/90 px-3.5 py-2 text-[13px] font-bold text-save">
-            결혼식 날짜 정하기
+          ) : (
+            <Link href="/settings/wedding?back=/" className="mt-1 inline-block text-[14px] font-bold underline underline-offset-2">
+              결혼식 날짜 정하기
+            </Link>
+          )}
+        </div>
+        {events.length > 0 && (
+          <Link href="/events" className="shrink-0 text-right">
+            <span className="block text-[11px] text-cover-sub">준비 진행</span>
+            <span className="num text-[13px] text-cover-sub">
+              <b className="text-[18px] text-cover-ink">{done}</b> / {events.length}
+            </span>
           </Link>
         )}
-        {events.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-baseline justify-between text-[13px] text-cover-sub">
-              <span>준비 진행</span>
-              <span className="num">
-                <b className="text-[17px] text-cover-ink">{done}</b> / {events.length}
-              </span>
-            </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/30">
-              <div className="h-full rounded-full bg-white" style={{ width: `${(done / events.length) * 100}%` }} />
-            </div>
-          </div>
-        )}
-      </section>
+      </header>
 
       {!kakaoEnabled() && !me && <MePicker names={wedding.names} />}
 
-      <section>
-        <h2 className="section-title">
-          곧 할 일
-          <small>{overdue ? `밀린 것 ${overdue}개 · 30일 안` : "30일 안"}</small>
-        </h2>
-        {soon.length > 0 ? (
-          <ul className="card ledger !py-1">
-            {soon.map((item) => (
-              <ScheduleRow key={`${item.kind}-${item.id}`} item={item} />
-            ))}
-          </ul>
-        ) : (
-          <div className="card space-y-2 text-[14px] text-sub">
-            <p>30일 안에 잡힌 일정이 없어요.</p>
-            {next && (
-              <p>
-                다음 이벤트는{" "}
-                <Link href={`/events/${next.id}`} className="font-semibold text-save">
-                  {next.title}
-                </Link>
-                {next.date ? ` (${dateLabel(next.date, now)})` : "예요. 날짜를 정해 볼까요?"}
-              </p>
-            )}
-            {events.length === 0 && (
-              <Link href="/events/new" className="font-semibold text-save">
-                첫 이벤트 만들기
-              </Link>
-            )}
-          </div>
-        )}
-      </section>
+      {overdue.length > 0 && (
+        <Link href={`/events/${overdue[0].eventId}`} className="card flex items-center gap-3 !py-3 ring-1 ring-spend/30">
+          <span className="rounded-md bg-spend-soft px-1.5 py-0.5 text-[11px] font-bold text-spend">밀림 {overdue.length}</span>
+          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">
+            {overdue[0].title}
+            {overdue.length > 1 && <span className="font-normal text-sub"> 외 {overdue.length - 1}개</span>}
+          </span>
+          <span className="text-faint" aria-hidden>›</span>
+        </Link>
+      )}
+
+      <Calendar items={calItems} today={ymd(now)} />
     </main>
   );
 }

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { LinkPending } from "./LinkPending";
 
 const I = {
-  home: <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" />,
+  list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
   calendar: (
     <>
       <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
@@ -20,8 +20,8 @@ const I = {
 };
 
 const TABS = [
-  { href: "/", label: "홈", icon: I.home, match: (p: string) => p === "/" || p.startsWith("/tasks") },
-  { href: "/events", label: "이벤트", icon: I.calendar, match: (p: string) => p.startsWith("/events") || p.startsWith("/payments") },
+  { href: "/", label: "캘린더", icon: I.calendar, match: (p: string) => p === "/" || p.startsWith("/tasks") },
+  { href: "/events", label: "이벤트", icon: I.list, match: (p: string) => p.startsWith("/events") || p.startsWith("/payments") },
   { href: "/settings", label: "설정", icon: I.gear, match: (p: string) => p.startsWith("/settings") },
 ];
 
