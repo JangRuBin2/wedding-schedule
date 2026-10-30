@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { addDays, fromTime, fromYmd } from "@/lib/dates";
 import { parseWon } from "@/lib/money";
+import { blobsOfEvents, deleteBlobs, storePhoto } from "@/lib/photos";
 import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
@@ -147,7 +148,9 @@ export async function updateEvent(form: FormData) {
 }
 
 export async function deleteEvent(id: string) {
+  const blobs = await blobsOfEvents([id]);
   await prisma.event.delete({ where: { id } });
+  await deleteBlobs(blobs);
   refresh();
   redirect("/events");
 }
@@ -157,7 +160,11 @@ const idList = (ids: unknown) => (Array.isArray(ids) ? ids.filter((x): x is stri
 /** 리스트 탭에서 여러 개 골라 지우기 (할 일·결제도 같이 지워짐) */
 export async function deleteEvents(ids: string[]) {
   const list = idList(ids);
-  if (list.length) await prisma.event.deleteMany({ where: { id: { in: list } } });
+  if (list.length) {
+    const blobs = await blobsOfEvents(list);
+    await prisma.event.deleteMany({ where: { id: { in: list } } });
+    await deleteBlobs(blobs);
+  }
   refresh();
 }
 
@@ -201,12 +208,12 @@ export async function addPhotos(form: FormData) {
     if (f.size > MAX_PHOTO || thumbs[i].size > MAX_THUMB) throw new Error("사진이 너무 커요");
   }
   const me = await getMe();
+  // Blob 을 연결했으면 Blob(비공개)에, 아니면 DB 에 (src/lib/photos.ts)
   const data = await Promise.all(
     photos.map(async (f, i) => ({
       eventId,
       mime: "image/jpeg",
-      data: new Uint8Array(await f.arrayBuffer()),
-      thumb: new Uint8Array(await thumbs[i].arrayBuffer()),
+      ...(await storePhoto(eventId, f, thumbs[i])),
       width: Math.min(10000, Math.max(1, ws[i] || 1)),
       height: Math.min(10000, Math.max(1, hs[i] || 1)),
       createdBy: me,
@@ -218,7 +225,8 @@ export async function addPhotos(form: FormData) {
 }
 
 export async function deletePhoto(id: string) {
-  const photo = await prisma.photo.delete({ where: { id }, select: { eventId: true } });
+  const photo = await prisma.photo.delete({ where: { id }, select: { eventId: true, url: true, thumbUrl: true } });
+  await deleteBlobs([photo]);
   refresh();
   redirect(`/events/${photo.eventId}`);
 }

@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma generate && prisma db push && next build",
-  "regions": ["hnd1"]
+  "buildCommand": "prisma generate && prisma db push && tsx scripts/move-photos-to-blob.ts && next build",
+  "regions": [
+    "hnd1"
+  ]
 }
