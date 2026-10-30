@@ -135,7 +135,16 @@ export async function createEvent(form: FormData) {
   const last = await prisma.event.findFirst({ orderBy: { order: "desc" } });
   const event = await prisma.event.create({ data: { ...data, order: (last?.order ?? 0) + 1 } });
   refresh();
-  redirect(`/events/${event.id}`); // 만든 이벤트로 가서 체크리스트·메모를 이어서 채움
+  // 캘린더의 '추가'에서 왔으면 그 날짜의 캘린더로, 아니면 만든 이벤트로 가서 체크리스트·메모를 이어서 채움
+  goBack(form, `/events/${event.id}`);
+}
+
+/** 추가 화면(/new) 하나에서 이벤트·할 일·결제 중 고른 것을 저장 */
+export async function createEntry(form: FormData) {
+  const kind = form.get("kind");
+  if (kind === "task") return addTask(form);
+  if (kind === "due") return addDue(form);
+  return createEvent(form);
 }
 
 export async function updateEvent(form: FormData) {

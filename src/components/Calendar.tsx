@@ -30,14 +30,13 @@ const WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const WEEK_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const KIND_ORDER = { event: 0, task: 1, due: 2 } as const;
 const TOGGLE = { event: toggleEvent, task: toggleTask, due: toggleDue } as const;
-const ADD = { event: "/events/new", task: "/tasks/new", due: "/payments/new" } as const;
 const pad = (n: number) => String(n).padStart(2, "0");
 const sortItems = (a: CalItem, b: CalItem) => a.ymd.localeCompare(b.ymd) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
 const weekday = (ymd: string) => WEEK_KO[new Date(`${ymd}T00:00:00Z`).getUTCDay()];
 
 /**
  * 홈 캘린더. 칸의 막대·리스트 색은 종류(이벤트·할 일·결제)로 구분하고, 카테고리는 선택 상자로 거름.
- * 날짜를 누르면 바로 아래에 그날 일정과 그 날짜로 추가하는 버튼이 나옴. 달 넘기기·고르기는 화면 안에서만
+ * 날짜를 누르면 바로 아래에 그날 일정과 '+ 추가'(그 날짜로 작성 화면을 엶)가 나옴. 달 넘기기·고르기는 화면 안에서만
  */
 export function Calendar({
   items,
@@ -166,7 +165,7 @@ export function Calendar({
         </ul>
       </div>
 
-      {/* 고른 날: 그날 일정 + 그 날짜로 추가 */}
+      {/* 고른 날: 그날 일정 + 그 날짜로 추가 (무엇을 추가할지는 작성 화면에서 고름) */}
       <div className="card space-y-3 !p-4">
         <h2 className="flex items-baseline justify-between gap-2">
           <span className="text-[16px] font-bold">
@@ -174,19 +173,10 @@ export function Calendar({
           </span>
           <span className="text-[12px] text-sub">{dayItems.length ? `일정 ${dayItems.length}개` : "일정 없음"}</span>
         </h2>
-        <div className="grid grid-cols-3 gap-2">
-          {(Object.keys(KINDS) as Kind[]).map((k) => (
-            <Link
-              key={k}
-              href={`${ADD[k]}?date=${selected}`}
-              className="relative rounded-xl border py-2 text-center text-[13px] font-bold"
-              style={{ borderColor: KINDS[k].color, color: KINDS[k].color }}
-            >
-              + {KINDS[k].label}
-              <LinkPending className="rounded-xl" />
-            </Link>
-          ))}
-        </div>
+        <Link href={`/new?date=${selected}`} className="btn relative block w-full !py-2.5 text-center">
+          + 추가
+          <LinkPending className="rounded-[14px]" />
+        </Link>
         {dayItems.length > 0 && (
           <ul className="space-y-2">
             {dayItems.map((it) => (
