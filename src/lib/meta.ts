@@ -76,3 +76,11 @@ export const EVENT_SUGGESTIONS = [
 
 /** 결제 이름 추천 */
 export const DUE_SUGGESTIONS = ["계약금", "중도금", "잔금", "추가금", "헬퍼비"];
+
+/** 일정 종류 색. 카테고리 색(파스텔)과 헷갈리지 않게 진하고 서로 확실히 다른 세 색 */
+export const KINDS = {
+  event: { label: "이벤트", color: "#c95d72" },
+  task: { label: "할 일", color: "#3f8f5f" },
+  due: { label: "결제", color: "#c27a1c" },
+} as const;
+export type Kind = keyof typeof KINDS;

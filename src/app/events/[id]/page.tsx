@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dateLabel, daysUntil, dueLabel, fullDate, shortDate, timeLabel } from "@/lib/dates";
-import { colorOf, soft } from "@/lib/meta";
+import { colorOf, KINDS, soft } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { getCategories } from "@/lib/categories";
 import { ADMIN_SECTION, suggestionsFor } from "@/lib/templates";
@@ -22,6 +22,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     include: {
       tasks: { orderBy: [{ done: "asc" }, { date: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
       dues: { orderBy: [{ date: "asc" }, { createdAt: "asc" }] },
+      // 사진 내용(바이트)은 빼고 id 만. 이미지는 /api/photos 에서 따로 받음
+      photos: { orderBy: { createdAt: "asc" }, select: { id: true } },
     },
   });
   if (!e) notFound();
@@ -85,6 +87,29 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <p className="text-[14px] text-sub">아직 적은 내용이 없어요</p>
           )}
         </div>
+      </section>
+
+      {/* 사진 */}
+      <section>
+        <h2 className="section-title !justify-start">
+          사진
+          {e.photos.length > 0 && <small className="num">{e.photos.length}장</small>}
+          <AddLink href={`${base}/photos/new`}>+ 사진</AddLink>
+        </h2>
+        {e.photos.length > 0 ? (
+          <ul className="grid grid-cols-3 gap-2">
+            {e.photos.map((p) => (
+              <li key={p.id}>
+                <Link href={`/photos/${p.id}`} className="block aspect-square overflow-hidden rounded-xl bg-card ring-1 ring-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/photos/${p.id}?size=thumb`} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-[18px] bg-card/60 p-4 text-[14px] text-sub ring-1 ring-line">참고 사진, 견적서, 시안을 올려 두면 둘이 같이 볼 수 있어요</p>
+        )}
       </section>
 
       <section>
@@ -165,7 +190,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 return (
                   <li key={d.id} className="flex items-center gap-3">
                     <Link href={`/payments/${d.id}/edit`} className="flex min-w-0 flex-1 items-center gap-3 py-3">
-                      <CategoryDot color={color} className="h-2.5 w-2.5 rotate-45 !rounded-[2px]" />
+                      <CategoryDot color={KINDS.due.color} className="h-2.5 w-2.5 rotate-45 !rounded-[2px]" />
                       <span className="min-w-0 flex-1">
                         <span className={`block truncate text-[15px] font-semibold ${d.done ? "text-sub line-through" : ""}`}>{d.title}</span>
                         <span className="num block truncate text-[12px] text-sub">

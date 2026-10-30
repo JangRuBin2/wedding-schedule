@@ -3,7 +3,7 @@ import { getEvents, getWedding } from "@/lib/data";
 import { dateLabel, daysUntil, dueLabel, shortDate } from "@/lib/dates";
 import { colorOf } from "@/lib/meta";
 import { getCategories } from "@/lib/categories";
-import { CategoryDot } from "@/components/CategoryDot";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { LinkPending } from "@/components/LinkPending";
 import { EventManager, type ManagedEvent } from "@/components/EventManager";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -22,7 +22,6 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
   const events = cat ? all.filter((e) => e.category === cat) : all;
 
   const canFill = !!wedding?.date && all.some((e) => !e.date && e.templateKey);
-  const filterHref = (c: string | null) => (c ? `/events?cat=${encodeURIComponent(c)}` : "/events");
   const rows: ManagedEvent[] = events.map((e) => {
     const days = e.date ? daysUntil(e.date, now) : null;
     const tasksDone = e.tasks.filter((t) => t.done).length;
@@ -58,20 +57,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
         </Link>
       </header>
 
-      <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="카테고리">
-        <FilterChip href={filterHref(null)} active={!cat}>
-          전체 {all.length}
-        </FilterChip>
-        {cats.map((c) => {
-          const n = all.filter((e) => e.category === c.name).length;
-          return n ? (
-            <FilterChip key={c.name} href={filterHref(c.name)} active={cat === c.name}>
-              <CategoryDot color={c.color} />
-              {c.name} {n}
-            </FilterChip>
-          ) : null;
-        })}
-      </nav>
+      <CategoryFilter options={cats.map((c) => ({ name: c.name, count: all.filter((e) => e.category === c.name).length }))} value={cat ?? ""} />
 
       {canFill && (
         <form action={fillDates} className="card flex items-center justify-between gap-3 !py-3.5">
@@ -89,17 +75,3 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
   );
 }
 
-function FilterChip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "true" : undefined}
-      className={`relative flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold whitespace-nowrap ${
-        active ? "border-save bg-save text-on-save" : "border-line bg-card text-sub"
-      }`}
-    >
-      {children}
-      <LinkPending className="rounded-full" />
-    </Link>
-  );
-}

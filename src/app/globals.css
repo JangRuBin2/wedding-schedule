@@ -56,6 +56,8 @@
 @layer base {
   body {
     background: var(--color-paper);
+    /* 어떤 줄이 넘쳐도 화면 전체가 옆으로 밀리지 않게 */
+    overflow-x: clip;
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -65,6 +67,36 @@
   :focus-visible {
     outline: 2px solid var(--color-save);
     outline-offset: 2px;
+  }
+
+  /*
+   * 줄바꿈: 한글은 단어 중간에서 끊지 않고(keep-all), 너무 긴 단어·주소만 넘칠 때 끊음.
+   * 버튼·칩·알약처럼 짧은 이름은 한 줄로, 문단은 마지막 줄이 한 글자로 남지 않게
+   */
+  h1,
+  h2,
+  h3,
+  p,
+  li,
+  dd,
+  span,
+  a,
+  label {
+    overflow-wrap: anywhere;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  select,
+  .btn-ghost,
+  .chip,
+  .pill {
+    white-space: nowrap;
   }
 }
 
@@ -206,5 +238,31 @@
   .swatch:has(input:focus-visible) {
     outline: 2px solid var(--color-save);
     outline-offset: 4px;
+  }
+
+  /* 종류 알약 (이벤트·할 일·결제). --k 로 종류 색을 넘김 */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--k);
+    background: color-mix(in srgb, var(--k) 14%, transparent);
+  }
+
+  /* 필터 선택 상자 */
+  .select {
+    appearance: none;
+    border: 1px solid var(--color-line);
+    background: var(--color-card)
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8186' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      no-repeat right 10px center / 14px;
+    border-radius: 999px;
+    padding: 6px 30px 6px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
   }
 }

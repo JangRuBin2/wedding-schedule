@@ -52,6 +52,7 @@ model Event {
   templateKey String?   @unique
   tasks       Task[]
   dues        Due[]
+  photos      Photo[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -107,4 +108,20 @@ model User {
   status      String    @default("PENDING")
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
+}
+
+/// 이벤트 사진. 브라우저에서 줄여서 올리고(긴 쪽 1600px) 작은 미리보기(400px)도 같이 저장
+model Photo {
+  id        String   @id @default(cuid())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  mime      String
+  data      Bytes
+  thumb     Bytes
+  width     Int
+  height    Int
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
 }

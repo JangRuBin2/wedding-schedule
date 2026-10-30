@@ -182,6 +182,47 @@ export async function saveMemo(form: FormData) {
   redirect(`/events/${id}`);
 }
 
+// ── 사진 ──
+
+const MAX_PHOTO = 1_500_000; // 줄인 사진 한 장 (보통 200~500KB)
+const MAX_THUMB = 200_000;
+
+/** 브라우저에서 줄인 사진(photo)과 미리보기(thumb)를 순서대로 받아 저장 */
+export async function addPhotos(form: FormData) {
+  const eventId = text(form, "eventId", 40);
+  if (!(await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } }))) throw new Error("이벤트가 없어요");
+  const photos = form.getAll("photo").filter((f): f is File => f instanceof File);
+  const thumbs = form.getAll("thumb").filter((f): f is File => f instanceof File);
+  const ws = form.getAll("w").map(Number);
+  const hs = form.getAll("h").map(Number);
+  if (!photos.length || photos.length > 6 || thumbs.length !== photos.length) throw new Error("사진은 한 번에 1~6장 올릴 수 있어요");
+  for (const [i, f] of photos.entries()) {
+    if (f.type !== "image/jpeg" || thumbs[i].type !== "image/jpeg") throw new Error("사진 형식이 맞지 않아요");
+    if (f.size > MAX_PHOTO || thumbs[i].size > MAX_THUMB) throw new Error("사진이 너무 커요");
+  }
+  const me = await getMe();
+  const data = await Promise.all(
+    photos.map(async (f, i) => ({
+      eventId,
+      mime: "image/jpeg",
+      data: new Uint8Array(await f.arrayBuffer()),
+      thumb: new Uint8Array(await thumbs[i].arrayBuffer()),
+      width: Math.min(10000, Math.max(1, ws[i] || 1)),
+      height: Math.min(10000, Math.max(1, hs[i] || 1)),
+      createdBy: me,
+    })),
+  );
+  await prisma.photo.createMany({ data });
+  refresh();
+  redirect(`/events/${eventId}`);
+}
+
+export async function deletePhoto(id: string) {
+  const photo = await prisma.photo.delete({ where: { id }, select: { eventId: true } });
+  refresh();
+  redirect(`/events/${photo.eventId}`);
+}
+
 // ── 할 일 ──
 
 /** 할 일 추가. 추천 칩을 누르면(pick) 그 내용으로 바로 저장 */
@@ -203,7 +244,7 @@ export async function addTask(form: FormData) {
     },
   });
   refresh();
-  redirect(`/events/${eventId}`);
+  goBack(form, `/events/${eventId}`);
 }
 
 /** 이벤트의 추천 할 일 한 번에 넣기. 이미 같은 내용이 있으면 건너뜀 */
@@ -266,7 +307,7 @@ export async function addDue(form: FormData) {
   const paid = form.get("paid") === "on" ? await checkData(false) : {};
   await prisma.due.create({ data: { eventId, title, date, amount, memo, ...paid } });
   refresh();
-  redirect(`/events/${eventId}`);
+  goBack(form, `/events/${eventId}`);
 }
 
 export async function updateDue(form: FormData) {

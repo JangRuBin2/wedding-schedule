@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getEvents, getWedding } from "@/lib/data";
-import { dateLabel, daysUntil, timeLabel, ymd } from "@/lib/dates";
-import { colorOf } from "@/lib/meta";
+import { dateLabel, daysUntil, fromYmd, timeLabel, ymd } from "@/lib/dates";
 import { won } from "@/lib/money";
 import { getCategories } from "@/lib/categories";
 import { getMe } from "@/lib/me";
@@ -13,9 +12,11 @@ import { MePicker } from "@/components/MePicker";
 
 export const dynamic = "force-dynamic";
 
-/** 홈: Our Wedding 머리말 + 캘린더 + 그 달(또는 고른 날) 일정 리스트 */
-export default async function HomePage() {
+/** 홈: Our Wedding 머리말 + 캘린더(고른 날 일정·추가) + 그 달 일정. ?date= 면 그날을 골라 둔 채로 */
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
   const now = new Date();
+  const { date } = await searchParams;
+  const initial = typeof date === "string" && fromYmd(date) ? date : undefined;
   const [wedding, events, me, cats] = await Promise.all([getWedding(), getEvents(), getMe(), getCategories()]);
   if (!wedding) redirect("/start");
 
@@ -32,7 +33,6 @@ export default async function HomePage() {
     place: i.place ?? undefined,
     amount: i.amount ? won(i.amount) : undefined,
     href: `/events/${i.eventId}`,
-    color: colorOf(cats, i.category),
     done: i.done,
   }));
   const overdue = upcoming(items, now).filter((i) => i.days < 0);
@@ -95,7 +95,7 @@ export default async function HomePage() {
         </Link>
       )}
 
-      <Calendar items={calItems} today={ymd(now)} categories={cats.map((c) => ({ name: c.name, color: c.color }))} />
+      <Calendar items={calItems} today={ymd(now)} initial={initial} categories={cats.map((c) => ({ name: c.name, color: c.color }))} />
     </main>
   );
 }
