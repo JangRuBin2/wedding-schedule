@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getEvents, getWedding } from "@/lib/data";
 import { dateLabel, daysUntil, dueLabel, shortDate } from "@/lib/dates";
-import { CATEGORIES } from "@/lib/meta";
+import { colorOf } from "@/lib/meta";
+import { getCategories } from "@/lib/categories";
 import { CategoryDot } from "@/components/CategoryDot";
 import { LinkPending } from "@/components/LinkPending";
 import { OptimisticCheck } from "@/components/OptimisticCheck";
@@ -15,9 +16,9 @@ const one = (v: unknown) => (typeof v === "string" ? v : undefined);
 
 export default async function EventsPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
-  const cat = CATEGORIES.some((c) => c.name === one(sp.cat)) ? one(sp.cat)! : null;
   const now = new Date();
-  const [all, wedding] = await Promise.all([getEvents(), getWedding()]);
+  const [all, wedding, cats] = await Promise.all([getEvents(), getWedding(), getCategories()]);
+  const cat = cats.some((c) => c.name === one(sp.cat)) ? one(sp.cat)! : null;
   const events = cat ? all.filter((e) => e.category === cat) : all;
 
   const canFill = !!wedding?.date && all.some((e) => !e.date && e.templateKey);
@@ -37,11 +38,11 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
         <FilterChip href={filterHref(null)} active={!cat}>
           전체 {all.length}
         </FilterChip>
-        {CATEGORIES.map((c) => {
+        {cats.map((c) => {
           const n = all.filter((e) => e.category === c.name).length;
           return n ? (
             <FilterChip key={c.name} href={filterHref(c.name)} active={cat === c.name}>
-              <CategoryDot name={c.name} />
+              <CategoryDot color={c.color} />
               {c.name} {n}
             </FilterChip>
           ) : null;
@@ -72,7 +73,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
                       {e.title}
                     </span>
                     <span className="num flex items-center gap-1.5 truncate text-[12px] text-sub">
-                      <CategoryDot name={e.category} className="h-1.5 w-1.5" />
+                      <CategoryDot color={colorOf(cats, e.category)} className="h-1.5 w-1.5" />
                       {e.done
                         ? `완료 ${[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}`
                         : e.date

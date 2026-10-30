@@ -1,5 +1,6 @@
 import { fromYmd } from "@/lib/dates";
-import { EVENT_SUGGESTIONS, toCategory } from "@/lib/meta";
+import { EVENT_SUGGESTIONS } from "@/lib/meta";
+import { getCategories } from "@/lib/categories";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { DateField } from "@/components/DateField";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -12,7 +13,7 @@ type SP = Promise<{ date?: string | string[]; category?: string | string[] }>;
 
 /** 이벤트 만들기. 캘린더에서 날짜를 고르고 왔으면 ?date= 로 미리 채움 */
 export default async function NewEventPage({ searchParams }: { searchParams: SP }) {
-  const sp = await searchParams;
+  const [sp, cats] = await Promise.all([searchParams, getCategories()]);
   const date = typeof sp.date === "string" && fromYmd(sp.date) ? sp.date : "";
   return (
     <main className="space-y-6">
@@ -27,7 +28,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: SP 
             ))}
           </datalist>
         </label>
-        <CategoryPicker value={typeof sp.category === "string" ? toCategory(sp.category) : undefined} />
+        <CategoryPicker categories={cats} value={typeof sp.category === "string" ? sp.category : undefined} />
         <DateField defaultValue={date} undated={false} />
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>

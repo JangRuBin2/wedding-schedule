@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { addDays, fromYmd } from "@/lib/dates";
-import { toCategory } from "@/lib/meta";
+import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
+import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
 import { safeBack } from "@/lib/back";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, templateOffset } from "@/lib/templates";
@@ -31,10 +32,12 @@ const checkData = async (done: boolean) =>
 /** 기본 20개 이벤트 중 아직 없는 것만 만듦 */
 async function createTemplateEvents() {
   const have = new Set((await prisma.event.findMany({ select: { templateKey: true } })).map((e) => e.templateKey));
+  // 기본 카테고리를 지웠거나 이름을 바꿨으면 '기타'로
+  const names = new Set((await getCategories()).map((c) => c.name));
   const data = EVENT_TEMPLATES.filter((t) => !have.has(t.key)).map((t) => ({
     order: t.order,
     title: t.title,
-    category: t.category,
+    category: names.has(t.category) ? t.category : FALLBACK_CATEGORY,
     templateKey: t.key,
     hint: t.hint ?? null,
     memo: t.memo ?? null,
@@ -109,16 +112,16 @@ export async function addTemplateEvents() {
 
 // ── 이벤트 ──
 
-function eventFields(form: FormData) {
+async function eventFields(form: FormData) {
   return {
     title: text(form, "title", 100),
-    category: toCategory(form.get("category")),
+    category: await validCategory(form.get("category")),
     date: form.get("undated") === "on" ? null : fromYmd(form.get("date")),
   };
 }
 
 export async function createEvent(form: FormData) {
-  const data = eventFields(form);
+  const data = await eventFields(form);
   if (!data.title) return;
   const last = await prisma.event.findFirst({ orderBy: { order: "desc" } });
   const event = await prisma.event.create({ data: { ...data, order: (last?.order ?? 0) + 1 } });
@@ -128,7 +131,7 @@ export async function createEvent(form: FormData) {
 
 export async function updateEvent(form: FormData) {
   const id = text(form, "id", 40);
-  const data = eventFields(form);
+  const data = await eventFields(form);
   if (!data.title) return;
   await prisma.event.update({ where: { id }, data });
   refresh();
@@ -254,6 +257,57 @@ export async function toggleDue(id: string) {
   if (!due) return;
   await prisma.due.update({ where: { id }, data: await checkData(due.done) });
   refresh();
+}
+
+// ── 카테고리 ──
+
+function categoryFields(form: FormData) {
+  const color = String(form.get("color") ?? "");
+  return { name: text(form, "name", 20), color: COLOR_PALETTE.includes(color) ? color : COLOR_PALETTE[0] };
+}
+
+export async function addCategory(form: FormData) {
+  const { name, color } = categoryFields(form);
+  if (!name) return;
+  const cats = await getCategories();
+  if (cats.some((c) => c.name === name)) throw new Error(`'${name}' 카테고리가 이미 있어요`);
+  // '기타' 바로 앞에 넣어서 기타는 늘 맨 끝
+  const fallback = cats.find((c) => c.name === FALLBACK_CATEGORY);
+  const last = Math.max(0, ...cats.filter((c) => c.name !== FALLBACK_CATEGORY).map((c) => c.order));
+  await prisma.$transaction([
+    prisma.category.create({ data: { name, color, order: last + 1 } }),
+    ...(fallback && fallback.order <= last + 1 ? [prisma.category.update({ where: { id: fallback.id }, data: { order: last + 2 } })] : []),
+  ]);
+  refresh();
+  goBack(form, "/settings/categories");
+}
+
+/** 이름을 바꾸면 그 카테고리의 이벤트도 같이 바꿈. '기타'는 색만 바꿀 수 있음 */
+export async function updateCategory(form: FormData) {
+  const cat = await prisma.category.findUnique({ where: { id: text(form, "id", 40) } });
+  if (!cat) return;
+  const { name: input, color } = categoryFields(form);
+  const name = cat.name === FALLBACK_CATEGORY ? cat.name : input;
+  if (!name) return;
+  if (name !== cat.name && (await prisma.category.findUnique({ where: { name } }))) throw new Error(`'${name}' 카테고리가 이미 있어요`);
+  await prisma.$transaction([
+    prisma.category.update({ where: { id: cat.id }, data: { name, color } }),
+    prisma.event.updateMany({ where: { category: cat.name }, data: { category: name } }),
+  ]);
+  refresh();
+  redirect("/settings/categories");
+}
+
+/** 지우면 그 카테고리의 이벤트는 '기타'로. '기타'는 못 지움 */
+export async function deleteCategory(id: string) {
+  const cat = await prisma.category.findUnique({ where: { id } });
+  if (!cat || cat.name === FALLBACK_CATEGORY) return;
+  await prisma.$transaction([
+    prisma.event.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
+    prisma.category.delete({ where: { id } }),
+  ]);
+  refresh();
+  redirect("/settings/categories");
 }
 
 // ── 카카오 로그인 사용자 관리 ──

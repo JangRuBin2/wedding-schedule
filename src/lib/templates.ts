@@ -1,14 +1,13 @@
-import type { Category } from "./meta";
-
 /**
  * 기본 20개 이벤트. 순서·이름·추천 일정(offset, 결혼식 날짜 기준 일)은 모아봄 결혼준비와 같고 카테고리만 붙였음.
+ * 카테고리는 기본 6개(DEFAULT_CATEGORIES) 중 하나
  * offset은 '추천 일정 채우기'를 할 때만 씀
  */
 export const EVENT_TEMPLATES: {
   key: string;
   order: number;
   title: string;
-  category: Category;
+  category: string;
   offset: number;
   hint?: string;
   memo?: string;

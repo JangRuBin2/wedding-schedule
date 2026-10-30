@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { addDays, dateLabel, daysUntil, dueLabel, fromYmd, ymd } from "./dates";
 import { scheduleItems, upcoming } from "./upcoming";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, suggestionsFor, templateOffset } from "./templates";
-import { CATEGORY_NAMES, toCategory } from "./meta";
+import { colorOf, DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
 
 test("날짜 입력값은 KST 그날로 저장되고 같은 날짜로 읽힘", () => {
   const d = fromYmd("2027-03-14")!;
@@ -42,7 +42,9 @@ test("추천 일정: 결혼식 날짜 + offset", () => {
 test("기본 이벤트 20개, 키 중복 없음, 카테고리는 목록 안", () => {
   assert.equal(EVENT_TEMPLATES.length, 20);
   assert.equal(new Set(EVENT_TEMPLATES.map((t) => t.key)).size, 20);
-  for (const t of EVENT_TEMPLATES) assert.ok(CATEGORY_NAMES.includes(t.category), t.title);
+  const names = DEFAULT_CATEGORIES.map((c) => c.name as string);
+  for (const t of EVENT_TEMPLATES) assert.ok(names.includes(t.category), t.title);
+  assert.ok(names.includes(FALLBACK_CATEGORY));
   const keys = new Set(EVENT_TEMPLATES.map((t) => t.key));
   for (const s of SUGGESTED_TASKS) assert.ok(keys.has(s.eventKey), s.content);
 });
@@ -54,10 +56,10 @@ test("추천 할 일: 이미 있는 건 빼고", () => {
   assert.deepEqual(suggestionsFor(null), []);
 });
 
-test("카테고리는 모르는 값이면 기타", () => {
-  assert.equal(toCategory("스드메"), "스드메");
-  assert.equal(toCategory("해킹"), "기타");
-  assert.equal(toCategory(null), "기타");
+test("카테고리 색: 목록에 없는 이름(지워진 카테고리)은 회색", () => {
+  const cats = [{ name: "혼수", color: "#e5544b" }];
+  assert.equal(colorOf(cats, "혼수"), "#e5544b");
+  assert.equal(colorOf(cats, "없음"), "#9ca3af");
 });
 
 test("곧 할 일: 밀린 것 먼저, 30일 안만, 끝난 건 빼고, 같은 날은 이벤트→할 일→돈 낼 날", () => {

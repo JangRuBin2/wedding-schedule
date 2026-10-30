@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dateLabel, daysUntil, dueLabel, shortDate } from "@/lib/dates";
-import { categoryColor } from "@/lib/meta";
+import { colorOf } from "@/lib/meta";
+import { getCategories } from "@/lib/categories";
 import { ADMIN_SECTION, suggestionsFor } from "@/lib/templates";
 import { CategoryDot } from "@/components/CategoryDot";
 import { OptimisticCheck } from "@/components/OptimisticCheck";
@@ -23,6 +24,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     },
   });
   if (!e) notFound();
+  const color = colorOf(await getCategories(), e.category);
 
   const days = e.date ? daysUntil(e.date, now) : null;
   const suggestions = suggestionsFor(e.templateKey, e.tasks);
@@ -38,7 +40,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         <div className="hero flex items-start gap-3 p-5">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-[12px] text-cover-sub">
-              <span className="h-2 w-2 rounded-full ring-2 ring-white/70" style={{ background: categoryColor(e.category) }} aria-hidden />
+              <span className="h-2 w-2 rounded-full ring-2 ring-white/70" style={{ background: color }} aria-hidden />
               {e.category}
             </p>
             <h1 className={`mt-0.5 text-[22px] leading-tight font-bold ${e.done ? "line-through decoration-2" : ""}`}>{e.title}</h1>
@@ -144,7 +146,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 return (
                   <li key={d.id} className="flex items-center gap-3">
                     <Link href={`/payments/${d.id}/edit`} className="flex min-w-0 flex-1 items-center gap-3 py-3">
-                      <CategoryDot name={e.category} className="h-2.5 w-2.5 rotate-45 !rounded-[2px]" />
+                      <CategoryDot color={color} className="h-2.5 w-2.5 rotate-45 !rounded-[2px]" />
                       <span className="min-w-0 flex-1">
                         <span className={`block truncate text-[15px] font-semibold ${d.done ? "text-sub line-through" : ""}`}>{d.title}</span>
                         <span className="num block truncate text-[12px] text-sub">

@@ -20,12 +20,21 @@ model Wedding {
   updatedAt DateTime  @updatedAt
 }
 
+/// 이벤트 카테고리. 처음엔 기본 6개, 설정에서 추가·이름·색 변경. '기타'는 지울 수 없음
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 /// 준비 이벤트 (20개 기본 + 직접 추가)
 model Event {
   id          String    @id @default(cuid())
   order       Int
   title       String
-  /// 예식 | 스드메 | 예물·예단 | 신혼여행 | 신혼집 | 기타
+  /// Category.name (이름을 바꾸면 같이 바꿈)
   category    String    @default("기타")
   date        DateTime?
   memo        String?

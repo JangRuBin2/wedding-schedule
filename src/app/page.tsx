@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getEvents, getWedding } from "@/lib/data";
 import { dateLabel, daysUntil, ymd } from "@/lib/dates";
-import { categoryColor } from "@/lib/meta";
+import { colorOf } from "@/lib/meta";
+import { getCategories } from "@/lib/categories";
 import { getMe } from "@/lib/me";
 import { kakaoEnabled } from "@/lib/session";
 import { scheduleItems, upcoming } from "@/lib/upcoming";
@@ -14,18 +15,19 @@ export const dynamic = "force-dynamic";
 /** 홈 = 캘린더. 위에 D-day·진행을 한 줄로, 밀린 일정이 있으면 첫 번째로 바로 가는 링크 */
 export default async function HomePage() {
   const now = new Date();
-  const [wedding, events, me] = await Promise.all([getWedding(), getEvents(), getMe()]);
+  const [wedding, events, me, cats] = await Promise.all([getWedding(), getEvents(), getMe(), getCategories()]);
   if (!wedding) redirect("/start");
 
   const items = scheduleItems(events);
   const calItems: CalItem[] = items.map((i) => ({
     key: `${i.kind}-${i.id}`,
+    id: i.id,
     ymd: ymd(i.date),
     kind: i.kind,
     label: i.title,
     sub: i.kind === "event" ? i.category : i.eventTitle,
     href: `/events/${i.eventId}`,
-    color: categoryColor(i.category),
+    color: colorOf(cats, i.category),
     done: i.done,
   }));
   const overdue = upcoming(items, now).filter((i) => i.days < 0);

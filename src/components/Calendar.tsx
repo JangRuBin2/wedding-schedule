@@ -1,10 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toggleDue, toggleEvent, toggleTask } from "@/app/actions";
 import { LinkPending } from "./LinkPending";
+import { OptimisticCheck } from "./OptimisticCheck";
 
 export type CalItem = {
   key: string;
+  /** 이벤트·할 일·돈 낼 날의 id (체크할 때 씀) */
+  id: string;
   /** KST 기준 YYYY-MM-DD */
   ymd: string;
   kind: "event" | "task" | "due";
@@ -18,11 +22,12 @@ export type CalItem = {
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const KIND_ORDER = { event: 0, task: 1, due: 2 } as const;
 const KIND_LABEL = { event: "이벤트", task: "할 일", due: "돈 낼 날" } as const;
+const TOGGLE = { event: toggleEvent, task: toggleTask, due: toggleDue } as const;
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * 한 달 캘린더. 달 넘기기·날짜 고르기는 화면 안에서만 바뀜(서버에 다시 묻지 않음).
- * 점 색은 이벤트 카테고리 색. 고른 날짜로 이벤트를 만들 수 있음
+ * 점 색은 이벤트 카테고리 색. 고른 날의 일정은 바로 체크하고, 고른 날짜로 이벤트를 만들 수 있음
  */
 export function Calendar({ items, today }: { items: CalItem[]; today: string }) {
   const [ty, tm] = today.split("-").map(Number);
@@ -130,8 +135,9 @@ export function Calendar({ items, today }: { items: CalItem[]; today: string }) 
         </h2>
         <ul className="card ledger !py-1">
           {dayItems.map((it) => (
-            <li key={it.key}>
-              <Link href={it.href} className="flex items-center gap-3 py-3">
+            <li key={it.key} className="flex items-center gap-3">
+              <OptimisticCheck done={!!it.done} action={TOGGLE[it.kind].bind(null, it.id)} label={it.label} />
+              <Link href={it.href} className="flex min-w-0 flex-1 items-center gap-3 py-3">
                 <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: it.color }} />
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-[15px] font-semibold ${it.done ? "text-sub line-through" : ""}`}>{it.label}</span>

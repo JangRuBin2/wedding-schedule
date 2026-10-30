@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getCategories } from "@/lib/categories";
 import { ymd } from "@/lib/dates";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { DateField } from "@/components/DateField";
@@ -13,6 +14,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const e = await prisma.event.findUnique({ where: { id }, include: { _count: { select: { tasks: true, dues: true } } } });
   if (!e) notFound();
+  const cats = await getCategories();
   return (
     <main className="space-y-6">
       <WriteHeader back={`/events/${e.id}`} backLabel="취소" title="이벤트 수정" />
@@ -22,7 +24,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
           <span className="label">이름</span>
           <input name="title" defaultValue={e.title} required maxLength={100} className="input" />
         </label>
-        <CategoryPicker value={e.category} />
+        <CategoryPicker categories={cats} value={e.category} />
         <DateField defaultValue={e.date ? ymd(e.date) : ""} undated={false} />
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>

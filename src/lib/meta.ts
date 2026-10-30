@@ -1,24 +1,40 @@
 /**
- * 이벤트 카테고리. 이름과 색은 모아봄 예산 구분에서 가져오고 금액 비율은 뺐음.
+ * 이벤트 카테고리 기본값과 색 팔레트. 실제 목록은 DB(Category)에 있고 처음 열 때 기본값으로 채움.
  * DB에 안 닿는 상수만 둬서 클라이언트 컴포넌트에서도 import 가능
  */
-export const CATEGORIES = [
-  { name: "예식", color: "#7b8cff", hint: "웨딩홀, 청첩장, 사회·축가, 식순" },
-  { name: "스드메", color: "#f08cbd", hint: "스튜디오·드레스·메이크업, 본식 스냅" },
-  { name: "예물·예단", color: "#f5b971", hint: "웨딩밴드, 예복, 한복, 혼주 준비" },
-  { name: "신혼여행", color: "#4fc3b8", hint: "항공, 숙소, 여권" },
-  { name: "신혼집", color: "#a78bfa", hint: "집 구하기, 가전·가구, 이사" },
-  { name: "기타", color: "#9ca3af", hint: "양가 인사, 상견례, 그 밖의 준비" },
+export const DEFAULT_CATEGORIES = [
+  { name: "예식", color: "#7b8cff" },
+  { name: "스드메", color: "#f08cbd" },
+  { name: "예물·예단", color: "#f5b971" },
+  { name: "신혼여행", color: "#4fc3b8" },
+  { name: "신혼집", color: "#a78bfa" },
+  { name: "기타", color: "#9ca3af" },
 ] as const;
 
-export type Category = (typeof CATEGORIES)[number]["name"];
+/** 지울 수 없는 카테고리. 지운 카테고리의 이벤트가 여기로 옮겨짐 */
+export const FALLBACK_CATEGORY = "기타";
 
-export const CATEGORY_NAMES: readonly string[] = CATEGORIES.map((c) => c.name);
+/** 카테고리 색 고르기 (라이트·다크 둘 다 읽히는 중간 톤) */
+export const COLOR_PALETTE = [
+  "#7b8cff",
+  "#f08cbd",
+  "#f5b971",
+  "#4fc3b8",
+  "#a78bfa",
+  "#e5544b",
+  "#4f9a5a",
+  "#2f86c4",
+  "#cfa125",
+  "#9a6b4b",
+  "#23a094",
+  "#9ca3af",
+];
 
-export const categoryColor = (name: string) => CATEGORIES.find((c) => c.name === name)?.color ?? "#9ca3af";
+export type CategoryInfo = { name: string; color: string };
 
-export const toCategory = (v: unknown): Category =>
-  (CATEGORY_NAMES.includes(String(v)) ? String(v) : "기타") as Category;
+/** 이름 → 색. 목록에 없으면(지워진 이름 등) 회색 */
+export const colorOf = (categories: readonly CategoryInfo[], name: string) =>
+  categories.find((c) => c.name === name)?.color ?? "#9ca3af";
 
 /** 이벤트 만들기 자동완성 */
 export const EVENT_SUGGESTIONS = [
