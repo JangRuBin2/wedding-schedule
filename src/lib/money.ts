@@ -1,17 +1,17 @@
-/** 금액 표시. 만 원 단위로 떨어지면 '30만 원', 아니면 '1,234,500원' */
+/**
+ * 금액 표시. 입력과 같은 만 원 단위로: '30만 원', '65.5만 원', '1억 5,000만 원'. 1만 원 미만만 '5,000원'
+ */
 export function won(n: number): string {
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
-  if (abs >= 10_000 && abs % 10_000 === 0) {
-    const man = abs / 10_000;
-    if (man >= 10_000) {
-      const eok = Math.floor(man / 10_000);
-      const rest = man % 10_000;
-      return `${sign}${eok}억${rest ? ` ${rest.toLocaleString("ko-KR")}만` : ""} 원`;
-    }
-    return `${sign}${man.toLocaleString("ko-KR")}만 원`;
+  if (abs < 10_000) return `${sign}${abs.toLocaleString("ko-KR")}원`;
+  const man = abs / 10_000;
+  if (Number.isInteger(man) && man >= 10_000) {
+    const eok = Math.floor(man / 10_000);
+    const rest = man % 10_000;
+    return `${sign}${eok}억${rest ? ` ${rest.toLocaleString("ko-KR")}만` : ""} 원`;
   }
-  return `${sign}${abs.toLocaleString("ko-KR")}원`;
+  return `${sign}${man.toLocaleString("ko-KR", { maximumFractionDigits: 4 })}만 원`;
 }
 
 /**

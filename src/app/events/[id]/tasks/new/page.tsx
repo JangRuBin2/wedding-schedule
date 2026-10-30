@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { suggestionsFor } from "@/lib/templates";
 import { SubmitButton } from "@/components/SubmitButton";
 import { WriteHeader } from "@/components/WriteHeader";
+import { Tip } from "@/components/Tip";
 import { addTask } from "../../../../actions";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +23,13 @@ export default async function NewTaskPage({ params }: { params: Promise<{ id: st
           <input name="content" placeholder="예: 촬영용 옷 구매" required autoFocus maxLength={200} className="input" />
         </label>
         <label className="block space-y-1">
-          <span className="label">날짜 (선택)</span>
+          <span className="label flex items-center gap-1">날짜 (선택)<Tip>날짜를 입력하면 캘린더에 표시돼요</Tip></span>
           <input name="date" type="date" className="input" />
-          <span className="block text-[12px] text-sub">날짜를 넣으면 캘린더에도 보여요</span>
         </label>
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
         {suggestions.length > 0 && (
           <div className="space-y-2 border-t border-line pt-4">
-            <p className="label">추천 할 일 · 누르면 바로 추가돼요</p>
+            <p className="label flex items-center gap-1">추천 할 일<Tip>누르면 바로 추가돼요</Tip></p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((s) => (
                 // 위의 '할 일' 칸이 비어 있어도 되게 formNoValidate

@@ -13,11 +13,12 @@ export default async function DeletePhotoPage({ params }: { params: Promise<{ id
   if (!p) notFound();
   return (
     <main className="space-y-6">
-      <WriteHeader back={`/photos/${p.id}`} backLabel="취소" title="사진 삭제" sub={`${p.event.title}에서 이 사진을 지울까요? 지우면 되돌릴 수 없어요`} />
+      <WriteHeader back={`/photos/${p.id}`} backLabel="취소" title="사진 삭제" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/photos/${p.id}?size=thumb`} alt="지울 사진" className="mx-auto max-h-64 rounded-xl" />
       <form action={deletePhoto.bind(null, p.id)}>
-        <SubmitButton pendingText="지우는 중…" className="w-full !bg-spend">이 사진 삭제</SubmitButton>
+        <p className="text-center text-[14px] text-sub">삭제한 사진은 되돌릴 수 없어요</p>
+        <SubmitButton pendingText="삭제 중…" className="mt-3 w-full !bg-spend">이 사진 삭제</SubmitButton>
       </form>
     </main>
   );

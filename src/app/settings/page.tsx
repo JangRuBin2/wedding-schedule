@@ -8,6 +8,7 @@ import { currentSession, getMe } from "@/lib/me";
 import { kakaoEnabled } from "@/lib/session";
 import { EVENT_TEMPLATES } from "@/lib/templates";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Tip } from "@/components/Tip";
 import { addTemplateEvents, setMe, setUserStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -37,10 +38,10 @@ export default async function SettingsPage() {
         <h2 className="section-title">우리 결혼식</h2>
         <ul className="card ledger !py-1">
           <Row href="/settings/wedding" label="결혼식 날짜·장소">
-            {wedding?.date ? `${dateLabel(wedding.date)}${wedding.place ? ` · ${wedding.place}` : ""}` : "정하지 않음"}
+            {wedding?.date ? `${dateLabel(wedding.date)}${wedding.place ? ` · ${wedding.place}` : ""}` : "미설정"}
           </Row>
           <Row href="/settings/names" label="우리 둘 이름">
-            {names.length ? names.join(" · ") : "정하지 않음"}
+            {names.length ? names.join(" · ") : "미설정"}
           </Row>
           <Row href="/settings/categories" label="카테고리">
             {cats.map((c) => c.name).join(" · ")}
@@ -55,7 +56,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="section-title">
             이 기기는 누구
-            <small>체크한 사람으로 남아요</small>
+            <Tip align="right">이 기기에서 체크하면 고른 이름이 완료 기록에 남아요</Tip>
           </h2>
           <form action={setMe} className="card flex flex-wrap items-center gap-2 !py-3.5">
             {names.map((n) => (
@@ -88,7 +89,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="section-title">
             로그인
-            <small>{session ? `${session.name}님으로 로그인함` : ""}</small>
+            <small>{session ? `${session.name}님 로그인 중` : ""}</small>
           </h2>
           <ul className="card ledger !py-1">
             {users.map((u) => (
@@ -116,7 +117,7 @@ export default async function SettingsPage() {
                 {isOwner && u.id !== session?.uid && u.status !== "REJECTED" && (
                   <form action={setUserStatus.bind(null, u.id, "REJECTED")}>
                     <SubmitButton base="btn-ghost" pendingText="…" className="!px-2.5 !py-1.5 text-[12px] !text-spend">
-                      {u.status === "APPROVED" ? "막기" : "거절"}
+                      {u.status === "APPROVED" ? "차단" : "거절"}
                     </SubmitButton>
                   </form>
                 )}
@@ -134,21 +135,21 @@ export default async function SettingsPage() {
         <section>
           <h2 className="section-title">기본 이벤트</h2>
           <form action={addTemplateEvents} className="card flex items-center justify-between gap-3 !py-3.5">
-            <p className="text-[13px] leading-snug text-sub">양가 인사부터 신혼여행까지 기본 이벤트 중 없는 {missing}개를 넣어요</p>
-            <SubmitButton pendingText="넣는 중…" className="shrink-0 whitespace-nowrap">넣기</SubmitButton>
+            <p className="text-[14px] font-semibold">빠진 기본 이벤트 {missing}개</p>
+            <SubmitButton pendingText="추가 중…" className="shrink-0 whitespace-nowrap">다시 추가</SubmitButton>
           </form>
         </section>
       )}
 
       <section>
-        <h2 className="section-title">앱처럼 쓰기</h2>
-        <div className="card space-y-1.5 text-[13px] leading-relaxed text-sub">
-          <p>
-            <b className="text-ink">아이폰</b> Safari 공유 버튼 → 홈 화면에 추가
-          </p>
-          <p>
-            <b className="text-ink">안드로이드</b> Chrome 메뉴(⋮) → 홈 화면에 추가
-          </p>
+        <h2 className="section-title">앱</h2>
+        <div className="card flex items-center gap-1.5 !py-3.5 text-[15px] font-semibold">
+          홈 화면에 추가하는 방법
+          <Tip>
+            아이폰: Safari 공유 버튼 → 홈 화면에 추가
+            <br />
+            안드로이드: Chrome 메뉴(⋮) → 홈 화면에 추가
+          </Tip>
         </div>
       </section>
     </main>

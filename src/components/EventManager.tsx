@@ -102,13 +102,13 @@ export function EventManager({ events }: { events: ManagedEvent[] }) {
               onClick={() => run(completeEvents)}
               className="btn-ghost !bg-save-soft !text-save disabled:opacity-40"
             >
-              완료로
+              완료 처리
             </button>
             <button
               type="button"
               disabled={!picked.size || pending}
               onClick={() => {
-                if (confirm(`이벤트 ${picked.size}개를 지울까요?\n안에 있는 할 일·결제도 같이 지워지고 되돌릴 수 없어요.`)) run(deleteEvents);
+                if (confirm(`이벤트 ${picked.size}개를 삭제할까요?\n포함된 할 일과 결제도 함께 삭제되며 되돌릴 수 없어요.`)) run(deleteEvents);
               }}
               className="btn-ghost !bg-spend-soft !text-spend disabled:opacity-40"
             >

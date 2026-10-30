@@ -16,7 +16,7 @@ export default async function ThemePage() {
   const theme = await getTheme();
   return (
     <main className="space-y-6">
-      <WriteHeader back="/settings" backLabel="취소" title="화면 테마" sub="이 기기에만 적용돼요. 다른 사람 화면은 바뀌지 않아요" />
+      <WriteHeader back="/settings" backLabel="취소" title="화면 테마" sub="이 기기에만 적용돼요" />
       <form action={saveTheme} className="card space-y-4">
         <fieldset className="space-y-2">
           <legend className="sr-only">테마</legend>

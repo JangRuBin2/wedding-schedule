@@ -25,7 +25,7 @@ export default async function EditDuePage({ params, searchParams }: { params: Pr
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>
       <form action={deleteDue.bind(null, d.id, back)} className="text-center">
-        <SubmitButton base="btn-ghost" className="!text-spend" pendingText="지우는 중…">이 결제 삭제</SubmitButton>
+        <SubmitButton base="btn-ghost" className="!text-spend" pendingText="삭제 중…">이 결제 삭제</SubmitButton>
       </form>
     </main>
   );

@@ -11,7 +11,7 @@ export function KindSwitch({ initial, sections }: { initial: Kind; sections: Rec
   return (
     <>
       <fieldset className="space-y-1.5">
-        <legend className="label mb-1.5">무엇을 추가할까요</legend>
+        <legend className="label mb-1.5">종류</legend>
         <div className="grid grid-cols-3 gap-2">
           {(Object.keys(KINDS) as Kind[]).map((k) => {
             const on = kind === k;

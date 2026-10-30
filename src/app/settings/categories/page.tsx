@@ -4,6 +4,7 @@ import { getCategories } from "@/lib/categories";
 import { FALLBACK_CATEGORY } from "@/lib/meta";
 import { CategoryDot } from "@/components/CategoryDot";
 import { LinkPending } from "@/components/LinkPending";
+import { Tip } from "@/components/Tip";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,12 @@ export default async function CategoriesPage() {
       <header className="space-y-2">
         <Link href="/settings" className="text-[13px] font-semibold text-sub">‹ 설정</Link>
         <div className="flex items-center justify-between">
-          <h1 className="text-[22px] font-bold">카테고리</h1>
+          <h1 className="flex items-center gap-1.5 text-[22px] font-bold">카테고리<Tip>이벤트를 분류하는 데 사용해요. 예산도 카테고리별로 설정해요</Tip></h1>
           <Link href="/settings/categories/new" className="btn relative !px-4 !py-2">
             + 카테고리
             <LinkPending />
           </Link>
         </div>
-        <p className="text-[13px] text-sub">이벤트를 나누는 구분이에요. 캘린더 점 색도 이 색을 따라가요</p>
       </header>
       <ul className="card ledger !py-1">
         {cats.map((c) => (

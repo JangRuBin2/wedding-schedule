@@ -1,11 +1,12 @@
 import { COLOR_PALETTE } from "@/lib/meta";
+import { Tip } from "./Tip";
 
 /** 카테고리 추가·수정 공통 입력 칸: 이름, 색 */
 export function CategoryFields({ name = "", color = COLOR_PALETTE[0], lockName = false }: { name?: string; color?: string; lockName?: boolean }) {
   return (
     <>
       <label className="block space-y-1">
-        <span className="label">이름</span>
+        <span className="label flex items-center gap-1">이름{lockName && <Tip>&apos;기타&apos;는 이름을 바꿀 수 없어요</Tip>}</span>
         <input
           name="name"
           defaultValue={name}
@@ -16,7 +17,7 @@ export function CategoryFields({ name = "", color = COLOR_PALETTE[0], lockName =
           readOnly={lockName}
           className={`input ${lockName ? "text-sub" : ""}`}
         />
-        {lockName && <span className="block text-[12px] text-sub">'기타'는 이름을 바꿀 수 없어요. 색만 바꿀 수 있어요</span>}
+        
       </label>
       <fieldset className="space-y-1.5">
         <legend className="label mb-2">색</legend>

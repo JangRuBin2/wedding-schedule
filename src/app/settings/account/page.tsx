@@ -13,7 +13,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   if (!user) notFound();
   return (
     <main className="space-y-6">
-      <WriteHeader back="/settings" backLabel="취소" title="이름 수정" sub="체크한 사람으로 이 이름이 남아요. 이미 남은 기록은 그대로예요" />
+      <WriteHeader back="/settings" backLabel="취소" title="이름 수정" sub="완료 기록에 표시되는 이름이에요. 이전 기록은 바뀌지 않아요" />
       <form action={renameUser} className="card space-y-5">
         <input type="hidden" name="id" value={user.id} />
         <label className="block space-y-1">

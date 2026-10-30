@@ -7,6 +7,7 @@ import { CategoryFilter } from "@/components/CategoryFilter";
 import { LinkPending } from "@/components/LinkPending";
 import { EventManager, type ManagedEvent } from "@/components/EventManager";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Tip } from "@/components/Tip";
 import { fillDates } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -61,8 +62,8 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
 
       {canFill && (
         <form action={fillDates} className="card flex items-center justify-between gap-3 !py-3.5">
-          <p className="text-[13px] leading-snug text-sub">날짜가 없는 기본 이벤트에 결혼식 날짜 기준 추천 일정을 넣을 수 있어요</p>
-          <SubmitButton pendingText="채우는 중…" className="shrink-0 whitespace-nowrap">추천 일정 채우기</SubmitButton>
+          <p className="flex items-center gap-1 text-[14px] font-semibold">날짜 미정 일정 채우기<Tip>결혼식 날짜를 기준으로 날짜가 비어 있는 기본 이벤트에 추천 날짜를 넣어요</Tip></p>
+          <SubmitButton pendingText="채우는 중…" className="shrink-0 whitespace-nowrap">채우기</SubmitButton>
         </form>
       )}
 

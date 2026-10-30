@@ -12,7 +12,7 @@ export default async function EventMemoPage({ params }: { params: Promise<{ id: 
   if (!e) notFound();
   return (
     <main className="space-y-6">
-      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title={e.memo ? "메모 수정" : "메모 쓰기"} sub={e.title} />
+      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title={e.memo ? "메모 수정" : "메모 작성"} sub={e.title} />
       <form action={saveMemo} className="card space-y-4">
         <input type="hidden" name="id" value={e.id} />
         <textarea

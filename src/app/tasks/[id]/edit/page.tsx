@@ -30,7 +30,7 @@ export default async function EditTaskPage({ params, searchParams }: { params: P
         <SubmitButton pendingText="저장 중…" className="w-full">저장</SubmitButton>
       </form>
       <form action={deleteTask.bind(null, t.id, back)} className="text-center">
-        <SubmitButton base="btn-ghost" className="!text-spend" pendingText="지우는 중…">이 할 일 삭제</SubmitButton>
+        <SubmitButton base="btn-ghost" className="!text-spend" pendingText="삭제 중…">이 할 일 삭제</SubmitButton>
       </form>
     </main>
   );

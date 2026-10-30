@@ -15,7 +15,7 @@ export default function PendingPage() {
         </p>
       </div>
       <div className="flex gap-2">
-        <a href="/api/auth/refresh" className="btn">승인됐는지 확인</a>
+        <a href="/api/auth/refresh" className="btn">승인 확인</a>
         <a href="/api/auth/logout" className="btn-ghost !py-[11px]">다른 계정</a>
       </div>
     </main>

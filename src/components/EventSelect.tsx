@@ -8,21 +8,21 @@ export function EventSelect({ events }: { events: Option[] }) {
   if (events.length === 0) {
     return (
       <p className="rounded-xl bg-blush px-3 py-3 text-[13px] text-sub">
-        할 일과 결제는 이벤트 안에 들어가요. 먼저{" "}
+        먼저{" "}
         <Link href="/events/new" className="font-semibold text-save underline underline-offset-2">
-          이벤트를 만들어
-        </Link>{" "}
-        주세요
+          이벤트를 추가
+        </Link>
+        해 주세요
       </p>
     );
   }
   const sorted = [...events].sort((a, b) => Number(a.done) - Number(b.done));
   return (
     <label className="block space-y-1.5">
-      <span className="label">어느 이벤트</span>
+      <span className="label">이벤트</span>
       <select name="eventId" required defaultValue="" className="input">
         <option value="" disabled>
-          이벤트를 골라 주세요
+          이벤트 선택
         </option>
         {sorted.map((e) => (
           <option key={e.id} value={e.id}>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { kakaoEnabled } from "@/lib/session";
 import { Logo } from "@/components/Logo";
+import { Tip } from "@/components/Tip";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           카카오 로그인
         </a>
         {typeof error === "string" && <p className="text-[13px] font-semibold text-spend">{error}</p>}
-        <p className="text-[12px] leading-relaxed text-sub">처음 로그인한 사람이 관리자가 되고, 그다음부터는 관리자가 승인해야 들어올 수 있어요</p>
+        <p className="flex items-center justify-center gap-1 text-[12px] text-sub">관리자 승인 후 이용할 수 있어요<Tip>처음 로그인한 사람이 관리자가 되고, 이후 로그인한 사람은 관리자가 승인하면 들어올 수 있어요</Tip></p>
       </div>
     </main>
   );

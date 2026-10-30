@@ -51,9 +51,9 @@ export function movePct(pct: number[], index: number, value: number, locked: boo
 
 /** 저장 전에 서버에서 다시 확인. 문제가 있으면 이유를, 괜찮으면 null */
 export function checkPlan(amountsMan: number[]): string | null {
-  if (amountsMan.some((a) => !Number.isInteger(a) || a < 0)) return "금액은 만 원 단위로 적어 주세요";
+  if (amountsMan.some((a) => !Number.isInteger(a) || a < 0)) return "금액은 만 원 단위로 입력해 주세요";
   const total = amountsMan.reduce((a, b) => a + b, 0);
-  if (total < MIN_TOTAL_MAN) return `총예산은 ${MIN_TOTAL_MAN}만 원부터 정할 수 있어요`;
-  if (total > MAX_TOTAL_MAN) return "총예산이 너무 커요 (20억 원까지)";
+  if (total < MIN_TOTAL_MAN) return `총예산은 ${MIN_TOTAL_MAN}만 원 이상 입력해 주세요`;
+  if (total > MAX_TOTAL_MAN) return "총예산은 최대 20억 원까지 입력할 수 있어요";
   return null;
 }

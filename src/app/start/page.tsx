@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getWedding } from "@/lib/data";
 import { Logo } from "@/components/Logo";
+import { Tip } from "@/components/Tip";
 import { SubmitButton } from "@/components/SubmitButton";
 import { start } from "../actions";
 
@@ -20,26 +21,23 @@ export default async function StartPage() {
       </header>
       <form action={start} className="card space-y-5">
         <label className="block space-y-1">
-          <span className="label">결혼식 날짜 (몰라도 괜찮아요)</span>
+          <span className="label flex items-center gap-1">결혼식 날짜 (선택)<Tip>날짜를 입력하면 기본 일정에 추천 날짜가 채워져요</Tip></span>
           <input name="date" type="date" className="input" />
-          <span className="block text-[12px] text-sub">날짜를 넣으면 이벤트마다 추천 일정을 채워 드려요</span>
         </label>
         <fieldset className="space-y-1">
-          <legend className="label mb-1">우리 둘 이름 (선택)</legend>
+          <legend className="label mb-1 flex items-center gap-1">우리 둘 이름 (선택)<Tip>완료 기록에 누가 체크했는지 표시할 때 사용해요</Tip></legend>
           <div className="flex gap-2">
             <input name="name1" placeholder="예: 민준" maxLength={30} className="input" />
             <input name="name2" placeholder="예: 지은" maxLength={30} className="input" />
           </div>
-          <span className="block text-[12px] text-sub">누가 체크했는지 남길 때 써요</span>
         </fieldset>
         <div className="space-y-2 border-t border-line pt-4">
-          <SubmitButton pendingText="만드는 중…" className="w-full">
-            20개 이벤트로 시작하기
+          <SubmitButton pendingText="준비 중…" className="w-full">
+            기본 일정으로 시작하기
           </SubmitButton>
-          <p className="text-center text-[12px] leading-relaxed text-sub">양가 인사부터 웨딩홀·스드메·청첩장·신혼여행까지 순서대로 만들어 드려요</p>
           {/* 같은 폼이라 날짜·이름은 그대로 저장되고 이벤트만 안 만듦 */}
           <button name="template" value="no" className="block w-full pt-2 text-center text-[13px] font-semibold text-sub">
-            이벤트 없이 직접 만들게요
+            빈 상태로 시작하기
           </button>
         </div>
       </form>

@@ -9,6 +9,7 @@ import { ADMIN_SECTION, suggestionsFor } from "@/lib/templates";
 import { CategoryDot } from "@/components/CategoryDot";
 import { OptimisticCheck } from "@/components/OptimisticCheck";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Tip } from "@/components/Tip";
 import { addSuggestedTasks, toggleDue, toggleEvent, toggleTask } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,10 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </SubmitButton>
             </form>
           </div>
-          <h1 className={`text-[22px] leading-tight font-bold ${e.done ? "text-sub line-through decoration-2" : ""}`}>{e.title}</h1>
+          <h1 className="flex items-center gap-1.5 text-[22px] leading-tight font-bold">
+            <span className={e.done ? "text-sub line-through decoration-2" : ""}>{e.title}</span>
+            {e.hint && <Tip label="준비 팁 보기">{e.hint}</Tip>}
+          </h1>
           <div className="space-y-1 text-[13px] text-sub">
             <p className="num">
               {e.date ? fullDate(e.date) : "날짜 미정"}
@@ -70,7 +74,6 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             {e.done && <p>완료 {[e.doneBy, e.doneAt && shortDate(e.doneAt)].filter(Boolean).join(" · ")}</p>}
           </div>
         </div>
-        {e.hint && <p className="rounded-xl bg-spend-soft px-3 py-2 text-[13px] text-spend">{e.hint}</p>}
       </header>
 
       {/* 체크리스트 */}
@@ -78,13 +81,13 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       <section>
         <h2 className="section-title !justify-start">
           상세 내용
-          <AddLink href={`${base}/memo`}>{e.memo ? "메모 수정" : "메모 쓰기"}</AddLink>
+          <AddLink href={`${base}/memo`}>{e.memo ? "메모 수정" : "메모 작성"}</AddLink>
         </h2>
         <div className="rounded-[18px] bg-card/60 p-4 ring-1 ring-line">
           {e.memo ? (
             <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{e.memo}</p>
           ) : (
-            <p className="text-[14px] text-sub">아직 적은 내용이 없어요</p>
+            <p className="text-[14px] text-sub">내용이 없어요</p>
           )}
         </div>
       </section>
@@ -108,7 +111,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             ))}
           </ul>
         ) : (
-          <p className="rounded-[18px] bg-card/60 p-4 text-[14px] text-sub ring-1 ring-line">참고 사진, 견적서, 시안을 올려 두면 둘이 같이 볼 수 있어요</p>
+          <p className="rounded-[18px] bg-card/60 p-4 text-[14px] text-sub ring-1 ring-line">사진이 없어요</p>
         )}
       </section>
 
@@ -160,8 +163,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           )}
           {suggestions.length > 0 && (
             <form action={addSuggestedTasks.bind(null, e.id)} className={e.tasks.length ? "border-t border-line pt-3" : ""}>
-              <SubmitButton base="" pendingText="넣는 중…" className="text-left text-[13px] font-semibold text-save">
-                추천 할 일 {suggestions.length}개 넣기 ({suggestions.slice(0, 2).map((x) => x.content).join(", ")}
+              <SubmitButton base="" pendingText="추가 중…" className="text-left text-[13px] font-semibold text-save">
+                추천 할 일 {suggestions.length}개 추가 ({suggestions.slice(0, 2).map((x) => x.content).join(", ")}
                 {suggestions.length > 2 ? " …" : ""})
               </SubmitButton>
             </form>
@@ -175,9 +178,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
           결제
           {(paid > 0 || planned > 0) && (
             <small className="num">
-              {paid > 0 && `${won(paid)} 냄`}
+              {paid > 0 && `${won(paid)} 결제`}
               {paid > 0 && planned > 0 && " · "}
-              {planned > 0 && `${won(planned)} 남음`}
+              {planned > 0 && `${won(planned)} 예정`}
             </small>
           )}
           <AddLink href={`${base}/payments/new`}>+ 결제</AddLink>
@@ -195,7 +198,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                         <span className={`block truncate text-[15px] font-semibold ${d.done ? "text-sub line-through" : ""}`}>{d.title}</span>
                         <span className="num block truncate text-[12px] text-sub">
                           {d.done ? (
-                            `냈어요${d.doneBy ? ` · ${d.doneBy}` : ""}${d.doneAt ? ` · ${shortDate(d.doneAt)}` : ""}`
+                            `결제 완료${d.doneBy ? ` · ${d.doneBy}` : ""}${d.doneAt ? ` · ${shortDate(d.doneAt)}` : ""}`
                           ) : (
                             <span className={dDays < 0 ? "font-semibold text-spend" : ""}>
                               {dateLabel(d.date, now)} · {dueLabel(dDays)}
@@ -214,7 +217,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                         pendingText="…"
                         className={`!px-2.5 !py-1.5 text-[12px] ${d.done ? "!text-sub" : "!bg-save-soft !text-save"}`}
                       >
-                        {d.done ? "취소" : "냈어요"}
+                        {d.done ? "취소" : "결제 완료"}
                       </SubmitButton>
                     </form>
                   </li>
@@ -222,7 +225,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               })}
             </ul>
           ) : (
-            <p className="text-[14px] text-sub">계약금·잔금을 금액과 날짜로 적어 두면 캘린더와 예산 탭에 보여요</p>
+            <p className="text-[14px] text-sub">결제 일정이 없어요</p>
           )}
         </div>
       </section>

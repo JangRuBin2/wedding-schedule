@@ -30,7 +30,7 @@ export function BudgetPlanner({ categories }: { categories: Cat[] }) {
     <div className="space-y-5">
       <div className="flex items-end gap-2">
         <label className="min-w-0 flex-1 space-y-1.5">
-          <span className="label">총예산 (만 원)</span>
+          <span className="label">총예산</span>
           <span className="relative block">
             <input
               inputMode="numeric"
@@ -55,11 +55,11 @@ export function BudgetPlanner({ categories }: { categories: Cat[] }) {
             setChanged(true);
           }}
         >
-          추천 비율로
+          추천 비율 적용
         </button>
       </div>
-      {tooSmall && <p className="text-[13px] font-semibold text-spend">총예산은 {MIN_TOTAL_MAN}만 원부터 정할 수 있어요</p>}
-      {tooBig && <p className="text-[13px] font-semibold text-spend">총예산은 20억 원(200,000만 원)까지 정할 수 있어요</p>}
+      {tooSmall && <p className="text-[13px] font-semibold text-spend">총예산은 {MIN_TOTAL_MAN}만 원 이상 입력해 주세요</p>}
+      {tooBig && <p className="text-[13px] font-semibold text-spend">총예산은 최대 20억 원까지 입력할 수 있어요</p>}
 
       <ul className="space-y-4">
         {categories.map((c, i) => (
@@ -72,9 +72,9 @@ export function BudgetPlanner({ categories }: { categories: Cat[] }) {
                 onClick={() => setLocked((prev) => prev.map((l, j) => (j === i ? !l : l)))}
                 aria-pressed={locked[i]}
                 className={`text-[11px] font-semibold ${locked[i] ? "text-save" : "text-faint"}`}
-                title="잠그면 다른 슬라이더를 움직여도 그대로예요"
+                title="고정하면 다른 항목을 움직여도 바뀌지 않아요"
               >
-                {locked[i] ? "잠김" : "잠금"}
+                {locked[i] ? "고정됨" : "고정"}
               </button>
               <span className="num ml-auto text-[14px] font-bold">{amounts[i].toLocaleString("ko-KR")}만 원</span>
               <span className="num w-10 text-right text-[12px] text-sub">{Math.round(pct[i])}%</span>
@@ -115,7 +115,7 @@ export function BudgetPlanner({ categories }: { categories: Cat[] }) {
           })
         }
       >
-        {pending ? "저장하는 중…" : !changed ? "바꾼 게 없어요" : "이대로 나누기"}
+        {pending ? "저장 중…" : !changed ? "변경 사항 없음" : "저장"}
       </button>
     </div>
   );

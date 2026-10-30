@@ -7,6 +7,7 @@ import { colorOf, soft } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { CategoryDot } from "@/components/CategoryDot";
 import { UsageBar } from "@/components/UsageBar";
+import { Tip } from "@/components/Tip";
 import { SubmitButton } from "@/components/SubmitButton";
 import { toggleDue } from "../actions";
 
@@ -38,33 +39,33 @@ export default async function BudgetPage() {
       <header className="flex items-center justify-between pt-2">
         <h1 className="text-[22px] font-bold">예산</h1>
         <Link href="/budget/edit" className="text-[13px] font-semibold text-save">
-          {sum.total ? "예산 나누기" : "예산 정하기"}
+          예산 설정
         </Link>
       </header>
 
       <section className="hero space-y-4 p-5">
         <div>
-          <p className="text-[13px] text-sub">총 예산</p>
-          <p className="num text-[28px] leading-tight font-bold">{sum.total ? won(sum.total) : "아직 안 정함"}</p>
+          <p className="text-[13px] text-sub">총예산</p>
+          <p className="num text-[28px] leading-tight font-bold">{sum.total ? won(sum.total) : "미설정"}</p>
         </div>
         {sum.total > 0 && <UsageBar rows={sum.rows} total={sum.total} />}
         <dl className="grid grid-cols-3 gap-2 text-center">
-          <Stat label="낸 돈" value={won(sum.paid)} />
-          <Stat label="낼 돈" value={won(sum.planned)} />
-          <Stat label={sum.left < 0 ? "넘은 돈" : "남은 돈"} value={sum.total ? won(Math.abs(sum.left)) : "-"} warn={sum.left < 0} />
+          <Stat label="지출" value={won(sum.paid)} />
+          <Stat label="결제 예정" value={won(sum.planned)} />
+          <Stat label={sum.left < 0 ? "초과" : "잔액"} value={sum.total ? won(Math.abs(sum.left)) : "-"} warn={sum.left < 0} />
         </dl>
       </section>
 
       {sum.total === 0 && (
         <Link href="/budget/edit" className="card block text-[14px] text-sub">
-          총예산을 정하고 카테고리별로 나누면 얼마나 썼는지, 얼마나 남았는지 한눈에 볼 수 있어요 <b className="font-semibold text-save">예산 나누기 ›</b>
+          예산을 설정하면 지출과 잔액을 한눈에 볼 수 있어요 <b className="font-semibold text-save">예산 설정하기 ›</b>
         </Link>
       )}
 
       <section>
         <h2 className="section-title">
           카테고리별
-          <small>진한 색 = 낸 돈 · 연한 색 = 낼 돈</small>
+          <Tip align="right">막대의 진한 색은 지출, 연한 색은 결제 예정이에요</Tip>
         </h2>
         {rows.length > 0 ? (
           <ul className="card ledger !py-1">
@@ -84,20 +85,19 @@ export default async function BudgetPage() {
                     <span className="h-full" style={{ width: `${paidW}%`, background: r.color }} />
                     <span className="h-full" style={{ width: `${plannedW}%`, background: soft(r.color, 0.5) }} />
                   </div>
-                  {r.over > 0 && <p className="text-[12px] font-semibold text-spend">예산보다 {won(r.over)} 넘어요</p>}
+                  {r.over > 0 && <p className="text-[12px] font-semibold text-spend">예산 {won(r.over)} 초과</p>}
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="card text-[14px] text-sub">이벤트에 금액을 넣은 결제가 생기면 여기에 쌓여요</p>
+          <p className="card text-[14px] text-sub">아직 지출이 없어요</p>
         )}
       </section>
 
       <section>
         <h2 className="section-title">
-          낼 돈
-          <small>날짜순</small>
+          결제 예정
         </h2>
         {upcoming.length > 0 ? (
           <ul className="card ledger !py-1">
@@ -117,7 +117,7 @@ export default async function BudgetPage() {
                   </Link>
                   <form action={toggleDue.bind(null, d.id)}>
                     <SubmitButton base="btn-ghost" pendingText="…" className="!bg-save-soft !px-2.5 !py-1.5 text-[12px] !text-save">
-                      냈어요
+                      결제 완료
                     </SubmitButton>
                   </form>
                 </li>
@@ -125,13 +125,13 @@ export default async function BudgetPage() {
             })}
           </ul>
         ) : (
-          <p className="card text-[14px] text-sub">낼 돈이 없어요. 이벤트 화면의 '+ 결제'로 계약금·잔금을 적어 두세요</p>
+          <p className="card text-[14px] text-sub">예정된 결제가 없어요</p>
         )}
       </section>
 
       {recent.length > 0 && (
         <section>
-          <h2 className="section-title">최근 낸 돈</h2>
+          <h2 className="section-title">최근 지출</h2>
           <ul className="card ledger !py-1">
             {recent.map((d) => (
               <li key={d.id}>

@@ -36,7 +36,7 @@ export function UsageBar({ rows, total }: { rows: Row[]; total: number }) {
               {r.name}
             </li>
           ))}
-          <li className="text-faint">빗금 = 낼 돈</li>
+          <li className="text-faint">빗금: 결제 예정</li>
         </ul>
       )}
     </div>

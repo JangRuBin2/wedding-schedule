@@ -11,7 +11,7 @@ export default async function NewPhotosPage({ params }: { params: Promise<{ id: 
   if (!e) notFound();
   return (
     <main className="space-y-6">
-      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title="사진 추가" sub={`${e.title} · 참고 사진, 견적서, 시안 등`} />
+      <WriteHeader back={`/events/${e.id}`} backLabel="취소" title="사진 추가" sub="참고 사진, 견적서, 시안 등을 올려 두면 함께 볼 수 있어요" />
       <div className="card">
         <PhotoUploader eventId={e.id} />
       </div>

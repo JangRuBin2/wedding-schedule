@@ -12,7 +12,7 @@ export default async function WeddingSettingsPage({ searchParams }: { searchPara
   const back = safeBack(sp.back, "/settings");
   return (
     <main className="space-y-6">
-      <WriteHeader back={back} backLabel="취소" title="결혼식 날짜·장소" sub="날짜를 바꿔도 이미 잡힌 이벤트 날짜는 그대로예요. 날짜가 없는 기본 이벤트만 이벤트 화면에서 추천 일정으로 채울 수 있어요" />
+      <WriteHeader back={back} backLabel="취소" title="결혼식 날짜·장소" sub="날짜를 바꿔도 이미 정한 일정은 바뀌지 않아요" />
       <form action={saveWedding} className="card space-y-5">
         <input type="hidden" name="back" value={back} />
         <label className="block space-y-1">

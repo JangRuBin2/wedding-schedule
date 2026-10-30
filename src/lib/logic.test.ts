@@ -125,7 +125,10 @@ test("예산: 냈어요는 낸 돈, 아직은 낼 돈, 금액 없는 결제는 �
 
 test("금액 표시", () => {
   assert.equal(won(300_000), "30만 원");
-  assert.equal(won(1_234_500), "1,234,500원");
+  assert.equal(won(1_234_500), "123.45만 원");
+  assert.equal(won(655_000), "65.5만 원");
+  assert.equal(won(5_000), "5,000원");
+  assert.equal(won(410_550_000), "4억 1,055만 원");
   assert.equal(won(150_000_000), "1억 5,000만 원");
   assert.equal(won(200_000_000), "2억 원");
 });
@@ -158,10 +161,10 @@ test("예산 나누기: 합계가 늘 총예산과 같고, 100만 원 미만은 
   }
   assert.deepEqual(allocate(5000, pct), [2500, 400, 600, 500, 750, 250]);
   assert.deepEqual(allocate(0, pct), [0, 0, 0, 0, 0, 0]);
-  assert.equal(checkPlan(allocate(1, pct)), "총예산은 100만 원부터 정할 수 있어요");
+  assert.equal(checkPlan(allocate(1, pct)), "총예산은 100만 원 이상 입력해 주세요");
   assert.equal(checkPlan(allocate(100, pct)), null);
-  assert.equal(checkPlan([50, 49.5]), "금액은 만 원 단위로 적어 주세요");
-  assert.equal(checkPlan([150000, 60000]), "총예산이 너무 커요 (20억 원까지)");
+  assert.equal(checkPlan([50, 49.5]), "금액은 만 원 단위로 입력해 주세요");
+  assert.equal(checkPlan([150000, 60000]), "총예산은 최대 20억 원까지 입력할 수 있어요");
   // 직접 만든 카테고리는 추천 0, 아는 이름이 없으면 똑같이
   assert.deepEqual(recommendedPct(["예식", "혼수"]), [100, 0]);
   assert.deepEqual(recommendedPct(["가", "나"]), [50, 50]);

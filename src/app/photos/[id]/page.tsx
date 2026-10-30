@@ -22,7 +22,7 @@ export default async function PhotoPage({ params }: { params: Promise<{ id: stri
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/photos/${p.id}`} alt={`${p.event.title} 사진`} width={p.width} height={p.height} className="h-auto w-full rounded-[18px] bg-card" />
       <p className="px-1 text-[12px] text-sub">
-        {shortDate(p.createdAt)}에 올림{p.createdBy && ` · ${p.createdBy}`} ·{" "}
+        {shortDate(p.createdAt)} 업로드{p.createdBy && ` · ${p.createdBy}`} ·{" "}
         <a href={`/api/photos/${p.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2">원본 열기</a>
       </p>
     </main>

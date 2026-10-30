@@ -52,7 +52,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <p className="mt-1 truncate text-[13px] text-sub">
             {wedding.date ? (
               <>
-                <b className="num font-semibold text-ink">{dday! > 0 ? `D-${dday}` : dday === 0 ? "오늘이에요!" : `결혼 ${-dday! + 1}일째`}</b>
+                <b className="num font-semibold text-ink">{dday! > 0 ? `D-${dday}` : dday === 0 ? "D-Day" : `결혼 ${-dday! + 1}일째`}</b>
                 {" · "}
                 {names ? `${names} · ` : ""}
                 {dateLabel(wedding.date, now)}

@@ -16,7 +16,7 @@ async function shrink(file: File, max: number, quality: number) {
   canvas.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
   bmp.close();
   const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", quality));
-  if (!blob) throw new Error("사진을 줄이지 못했어요");
+  if (!blob) throw new Error("사진을 처리하지 못했어요");
   return { blob, w, h };
 }
 
@@ -50,7 +50,7 @@ export function PhotoUploader({ eventId }: { eventId: string }) {
         await addPhotos(fd);
       } catch (e) {
         // redirect 는 에러처럼 던져지지만 Next 가 처리하므로 그 외 진짜 실패만 보여 줌
-        if (e instanceof Error && !e.message.includes("NEXT_REDIRECT")) setError(e.message || "올리지 못했어요. 다시 시도해 주세요");
+        if (e instanceof Error && !e.message.includes("NEXT_REDIRECT")) setError(e.message || "업로드에 실패했어요. 다시 시도해 주세요");
         else throw e;
       }
     });
@@ -59,8 +59,8 @@ export function PhotoUploader({ eventId }: { eventId: string }) {
     <div className="space-y-4">
       <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line bg-paper py-8 text-center">
         <span className="text-[24px] text-sub" aria-hidden>＋</span>
-        <span className="text-[14px] font-semibold">사진 고르기</span>
-        <span className="text-[12px] text-sub">한 번에 {MAX_FILES}장까지</span>
+        <span className="text-[14px] font-semibold">사진 선택</span>
+        <span className="text-[12px] text-sub">최대 {MAX_FILES}장</span>
         <input
           type="file"
           accept="image/*"
@@ -68,7 +68,7 @@ export function PhotoUploader({ eventId }: { eventId: string }) {
           className="sr-only"
           onChange={(e) => {
             const picked = [...(e.target.files ?? [])].filter((f) => f.type.startsWith("image/"));
-            setError(picked.length > MAX_FILES ? `한 번에 ${MAX_FILES}장까지 올릴 수 있어요. 앞의 ${MAX_FILES}장만 골랐어요` : "");
+            setError(picked.length > MAX_FILES ? `한 번에 최대 ${MAX_FILES}장까지 올릴 수 있어요. 앞의 ${MAX_FILES}장만 선택했어요` : "");
             setFiles(picked.slice(0, MAX_FILES));
           }}
         />
@@ -85,7 +85,7 @@ export function PhotoUploader({ eventId }: { eventId: string }) {
       )}
       {error && <p className="text-[13px] font-semibold text-spend">{error}</p>}
       <button type="button" onClick={submit} disabled={!files.length || pending} className="btn w-full disabled:opacity-50" aria-busy={pending}>
-        {pending ? "올리는 중…" : files.length ? `사진 ${files.length}장 저장` : "저장"}
+        {pending ? "업로드 중…" : files.length ? `사진 ${files.length}장 저장` : "저장"}
       </button>
     </div>
   );
