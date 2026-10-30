@@ -12,6 +12,10 @@ export const kakaoEnabled = () => !!process.env.KAKAO_REST_API_KEY;
 
 const secret = () => process.env.AUTH_SECRET || "";
 
+/** 카카오 로그인을 켰는데 쿠키 서명 키가 없으면 로그인이 안 됨. 로그인 화면에 안내하려고 따로 확인 */
+export const MISSING_SECRET = "AUTH_SECRET 환경 변수가 없어요. Vercel에 아무 긴 문자열로 추가하고 다시 배포해 주세요";
+export const authSecretMissing = () => !secret();
+
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const fromB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 

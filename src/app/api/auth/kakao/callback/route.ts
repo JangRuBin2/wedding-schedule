@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sessionCookie, signSession } from "@/lib/session";
+import { authSecretMissing, MISSING_SECRET, sessionCookie, signSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const fail = (reason: string) => NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, url.origin));
+  if (authSecretMissing()) return fail(MISSING_SECRET);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const savedState = req.headers.get("cookie")?.match(/(?:^|;\s*)bomnal_oauth_state=([^;]+)/)?.[1];

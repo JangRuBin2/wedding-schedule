@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { kakaoEnabled } from "@/lib/session";
+import { authSecretMissing, kakaoEnabled, MISSING_SECRET } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 /** 카카오 로그인 화면으로 보냄. state 쿠키로 다른 사이트에서 콜백을 위조하지 못하게 함 */
 export async function GET(req: Request) {
   if (!kakaoEnabled()) return NextResponse.redirect(new URL("/", req.url));
+  if (authSecretMissing()) return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(MISSING_SECRET)}`, req.url));
   const origin = new URL(req.url).origin;
   const state = crypto.randomUUID();
   const url = new URL("https://kauth.kakao.com/oauth/authorize");
