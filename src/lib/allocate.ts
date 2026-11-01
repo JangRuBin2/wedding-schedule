@@ -23,7 +23,8 @@ export function allocate(totalMan: number, pct: number[]): number[] {
   const total = Math.max(0, Math.floor(totalMan));
   const pSum = pct.reduce((a, b) => a + Math.max(0, b), 0);
   if (!total || !pSum) return pct.map(() => 0);
-  const exact = pct.map((p) => (total * Math.max(0, p)) / pSum);
+  // 1e-6 단위로 맞춰서 1500/4100*100 같은 비율이 1499.9999… 로 내려가 1만 원 어긋나지 않게
+  const exact = pct.map((p) => Math.round(((total * Math.max(0, p)) / pSum) * 1e6) / 1e6);
   const out = exact.map(Math.floor);
   let left = total - out.reduce((a, b) => a + b, 0);
   const order = exact.map((e, i) => ({ i, frac: e - Math.floor(e) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
@@ -56,4 +57,29 @@ export function checkPlan(amountsMan: number[]): string | null {
   if (total < MIN_TOTAL_MAN) return `총예산은 ${MIN_TOTAL_MAN}만 원 이상 입력해 주세요`;
   if (total > MAX_TOTAL_MAN) return "총예산은 최대 20억 원까지 입력할 수 있어요";
   return null;
+}
+
+/**
+ * 카테고리 하나에 금액(만 원)을 직접 적었을 때. 적은 칸은 고정되고,
+ * - 총예산 안에서 맞출 수 있으면 슬라이더처럼 안 잠근 나머지가 비율대로 줄거나 늘어서 총예산은 그대로
+ * - 넘치거나 움직일 칸이 없으면 다른 칸 금액은 그대로 두고 총예산을 합계로 바꿈
+ */
+export function setAmount(
+  totalMan: number,
+  pct: number[],
+  locked: boolean[],
+  index: number,
+  man: number,
+): { total: number; pct: number[]; locked: boolean[] } {
+  const v = Math.max(0, Math.min(MAX_TOTAL_MAN, Math.floor(man)));
+  const amounts = allocate(totalMan, pct);
+  const lockedNext = locked.map((l, i) => (i === index ? true : l));
+  const free = pct.map((_, i) => i).filter((i) => i !== index && !locked[i]);
+  const lockedOthers = amounts.reduce((s, a, i) => (i !== index && locked[i] ? s + a : s), 0);
+  if (totalMan > 0 && free.length && v <= totalMan - lockedOthers) {
+    return { total: totalMan, pct: movePct(pct, index, (v / totalMan) * 100, locked), locked: lockedNext };
+  }
+  const next = amounts.map((a, i) => (i === index ? v : a));
+  const total = next.reduce((a, b) => a + b, 0);
+  return { total, pct: total ? next.map((a) => (a / total) * 100) : pct.map(() => 0), locked: lockedNext };
 }

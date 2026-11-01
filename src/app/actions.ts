@@ -383,6 +383,28 @@ export async function addCategory(form: FormData) {
   goBack(form, "/settings/categories");
 }
 
+/**
+ * 예산 설정 화면에서 이름만 적어 바로 카테고리 추가. 색은 아직 안 쓴 색부터 골라 줌.
+ * 화면을 떠나지 않고 슬라이더 목록에 붙여야 해서 이동(redirect) 없이 만든 카테고리를 돌려줌
+ */
+export async function addBudgetCategory(rawName: string): Promise<{ id: string; name: string; color: string; budget: number }> {
+  const name = String(rawName ?? "").trim().slice(0, 20);
+  if (!name) throw new Error("카테고리 이름을 입력해 주세요");
+  const cats = await getCategories();
+  if (cats.some((c) => c.name === name)) throw new Error(`'${name}' 카테고리가 이미 있어요`);
+  const used = new Set(cats.map((c) => c.color));
+  const color = COLOR_PALETTE.find((c) => !used.has(c)) ?? COLOR_PALETTE[cats.length % COLOR_PALETTE.length];
+  // '기타' 바로 앞에 넣어서 기타는 늘 맨 끝 (addCategory 와 같은 규칙)
+  const fallback = cats.find((c) => c.name === FALLBACK_CATEGORY);
+  const last = Math.max(0, ...cats.filter((c) => c.name !== FALLBACK_CATEGORY).map((c) => c.order));
+  const [created] = await prisma.$transaction([
+    prisma.category.create({ data: { name, color, order: last + 1 } }),
+    ...(fallback && fallback.order <= last + 1 ? [prisma.category.update({ where: { id: fallback.id }, data: { order: last + 2 } })] : []),
+  ]);
+  refresh();
+  return { id: created.id, name: created.name, color: created.color, budget: 0 };
+}
+
 /** 이름을 바꾸면 그 카테고리의 이벤트도 같이 바꿈. '기타'는 색만 바꿀 수 있음 */
 export async function updateCategory(form: FormData) {
   const cat = await prisma.category.findUnique({ where: { id: text(form, "id", 40) } });

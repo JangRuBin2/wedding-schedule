@@ -1,5 +1,6 @@
 import { EVENT_SUGGESTIONS, type CategoryInfo } from "@/lib/meta";
 import { CategoryPicker } from "./CategoryPicker";
+import { SuggestInput } from "./SuggestInput";
 import { TimeFields, Toggle } from "./TimeFields";
 
 type Values = {
@@ -20,24 +21,10 @@ export function EventFields({ categories, v = {}, withMemo = true }: { categorie
   return (
     <>
       <CategoryPicker categories={categories} value={v.category} />
-      <label className="block space-y-1.5">
-        <span className="label">제목</span>
-        <input
-          name="title"
-          defaultValue={v.title}
-          placeholder="예) 스튜디오 촬영"
-          required
-          autoFocus={!v.title}
-          maxLength={100}
-          list="event-suggestions"
-          className="input"
-        />
-        <datalist id="event-suggestions">
-          {EVENT_SUGGESTIONS.map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
-      </label>
+      <div className="space-y-1.5">
+        <label htmlFor="event-title" className="label block">제목</label>
+        <SuggestInput id="event-title" name="title" defaultValue={v.title} suggestions={EVENT_SUGGESTIONS} placeholder="예) 스튜디오 촬영" required maxLength={100} />
+      </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label htmlFor="date" className="label">날짜</label>

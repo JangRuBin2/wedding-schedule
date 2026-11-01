@@ -13,7 +13,7 @@ export default async function EditBudgetPage() {
         back="/budget"
         backLabel="취소"
         title="예산 설정"
-        sub="총예산을 입력하고 카테고리별 비율을 조절하세요. 고정한 항목은 다른 항목을 움직여도 바뀌지 않아요"
+        sub="총예산을 입력하고 슬라이더나 금액으로 카테고리별 예산을 나눠요. 금액을 직접 적거나 고정한 항목은 다른 항목을 움직여도 바뀌지 않아요"
       />
       <div className="card">
         <BudgetPlanner categories={cats.map((c) => ({ id: c.id, name: c.name, color: c.color, budget: c.budget }))} />

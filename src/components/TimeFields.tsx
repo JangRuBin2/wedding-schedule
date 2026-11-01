@@ -17,7 +17,7 @@ export function TimeFields({ start, end }: { start?: string | null; end?: string
           defaultValue={start ?? ""}
           onChange={(e) => e.target.value && setAllDay(false)}
           aria-label="시작 시간"
-          className="input num"
+          className="input num min-w-0 flex-1"
         />
         <span className="text-sub">-</span>
         <input
@@ -26,7 +26,7 @@ export function TimeFields({ start, end }: { start?: string | null; end?: string
           defaultValue={end ?? ""}
           onChange={(e) => e.target.value && setAllDay(false)}
           aria-label="끝 시간"
-          className="input num"
+          className="input num min-w-0 flex-1"
         />
       </div>
     </div>

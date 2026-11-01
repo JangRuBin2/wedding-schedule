@@ -90,6 +90,11 @@
     word-break: keep-all;
   }
 
+  /* fieldset 은 기본이 min-width: min-content 라 안에 옆으로 긴 줄(추천 칩 등)이 있으면 화면이 통째로 넓어짐 */
+  fieldset {
+    min-width: 0;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-save);
     outline-offset: 2px;

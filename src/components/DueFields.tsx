@@ -1,4 +1,5 @@
 import { DUE_SUGGESTIONS } from "@/lib/meta";
+import { SuggestInput } from "./SuggestInput";
 import { Tip } from "./Tip";
 
 /** 결제 추가·수정 공통 칸: 무엇, 금액(만 원 단위), 날짜, 메모 (+ 추가할 때만 '이미 냈어요') */
@@ -17,15 +18,10 @@ export function DueFields({
 }) {
   return (
     <>
-      <label className="block space-y-1.5">
-        <span className="label">항목</span>
-        <input name="title" defaultValue={title} placeholder="예: 잔금" required autoFocus={!title} maxLength={60} list="due-suggestions" className="input" />
-        <datalist id="due-suggestions">
-          {DUE_SUGGESTIONS.map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
-      </label>
+      <div className="space-y-1.5">
+        <label htmlFor="due-title" className="label block">항목</label>
+        <SuggestInput id="due-title" name="title" defaultValue={title} suggestions={DUE_SUGGESTIONS} placeholder="예: 잔금" required maxLength={60} />
+      </div>
       <label className="block space-y-1.5">
         <span className="label flex items-center gap-1">금액 (선택)<Tip>만 원 단위로 입력해요. 30은 30만 원, 3.5는 3만 5천 원이에요. 입력한 금액은 예산 탭에 반영돼요</Tip></span>
         <span className="relative block">

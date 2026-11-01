@@ -160,7 +160,7 @@ function Stat({ label, value, warn }: { label: string; value: string; warn?: boo
   return (
     <div className="rounded-xl bg-card/70 px-2 py-2.5">
       <dt className="text-[11px] text-sub">{label}</dt>
-      <dd className={`num mt-0.5 truncate text-[14px] font-bold ${warn ? "text-spend" : ""}`}>{value}</dd>
+      <dd className={`num mt-0.5 text-[14px] leading-snug font-bold ${warn ? "text-spend" : ""}`}>{value}</dd>
     </div>
   );
 }

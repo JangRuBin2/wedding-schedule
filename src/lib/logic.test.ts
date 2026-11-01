@@ -6,6 +6,7 @@ import { won } from "./money";
 import { scheduleItems, upcoming } from "./upcoming";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, suggestionsFor, templateOffset } from "./templates";
 import { colorOf, DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
+import { allocate, setAmount } from "./allocate";
 
 test("날짜 입력값은 KST 그날로 저장되고 같은 날짜로 읽힘", () => {
   const d = fromYmd("2027-03-14")!;
@@ -190,4 +191,27 @@ test("만 원 단위 입력", async () => {
   assert.equal(toManInput(300_000), "30");
   assert.equal(toManInput(35_000), "3.5");
   assert.equal(toManInput(null), "");
+});
+
+test("setAmount: 총예산 안이면 나머지가 비율대로 맞춰지고 적은 칸은 고정", () => {
+  const r = setAmount(1000, [50, 30, 20], [false, false, false], 0, 600);
+  assert.deepEqual(allocate(r.total, r.pct), [600, 240, 160]);
+  assert.equal(r.total, 1000);
+  assert.deepEqual(r.locked, [true, false, false]);
+});
+
+test("setAmount: 총예산을 넘기면 다른 칸은 그대로, 총예산이 합계로", () => {
+  const r = setAmount(1000, [50, 30, 20], [false, true, false], 0, 2000);
+  assert.equal(r.total, 2000 + 300 + 200);
+  assert.deepEqual(allocate(r.total, r.pct), [2000, 300, 200]);
+});
+
+test("setAmount: 총예산이 없으면 적은 금액이 곧 총예산", () => {
+  const r = setAmount(0, [50, 50], [false, false], 1, 300);
+  assert.equal(r.total, 300);
+  assert.deepEqual(allocate(r.total, r.pct), [0, 300]);
+});
+
+test("allocate: 4,100만 원 중 1,500만 원이 1,499만 원으로 어긋나지 않음", () => {
+  assert.equal(allocate(4100, [(1500 / 4100) * 100, 100 - (1500 / 4100) * 100])[0], 1500);
 });
