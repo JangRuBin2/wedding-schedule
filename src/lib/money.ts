@@ -30,3 +30,12 @@ export function parseMan(v: unknown): number | null {
 
 /** 원 → 만 원 입력칸에 넣을 값 ('300000' → '30', '35000' → '3.5') */
 export const toManInput = (won: number | null | undefined) => (won ? String(Math.round((won / 10_000) * 10_000) / 10_000) : "");
+
+/** 원 단위 입력 → 원. '1,234,000', '1234000원' 을 받음. 비었거나 잘못되면 null (지출 기록은 영수증 금액 그대로 적게 원 단위) */
+export function parseWon(v: unknown): number | null {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/[,\s원]/g, "");
+  if (!/^\d{1,10}$/.test(s)) return null;
+  const n = Number(s);
+  return n > 0 && n <= 2_000_000_000 ? n : null;
+}

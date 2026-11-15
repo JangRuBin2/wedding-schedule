@@ -5,10 +5,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { addDays, fromTime, fromYmd } from "@/lib/dates";
-import { parseMan } from "@/lib/money";
+import { parseMan, parseWon } from "@/lib/money";
 import { checkPlan } from "@/lib/allocate";
 import { THEME_COOKIE } from "@/lib/theme";
-import { blobsOfEvents, deleteBlobs, storePhoto } from "@/lib/photos";
+import { blobsOfEvents, deleteBlobs, storeImage, storePhoto } from "@/lib/photos";
+import { blobsOfExpenses } from "@/lib/receipts";
 import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
@@ -362,6 +363,90 @@ export async function toggleDue(id: string) {
 
 // ── 카테고리 ──
 
+/* ───────── 지출 기록 + 증빙 ───────── */
+
+/** 지출 하나에 붙일 수 있는 증빙 이미지 수 */
+const MAX_RECEIPTS = 10;
+const MAX_RECEIPT = 2_000_000; // 줄인 이미지 한 장 (글씨가 읽히게 사진보다 조금 크게 줄임)
+
+type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
+
+/**
+ * 지출 저장 (id 가 없으면 새로, 있으면 수정). 작성 화면이 결과를 받아서 증빙을 한 장씩 올림.
+ * 배포 환경은 서버 에러 메시지를 가려서, 사용자에게 보일 문제는 throw 대신 { ok: false, error } 로 돌려줌
+ */
+export async function saveExpense(form: FormData): Promise<Result<{ id: string }>> {
+  const id = text(form, "id", 40);
+  const title = text(form, "title", 60);
+  const amount = parseWon(form.get("amount"));
+  const date = fromYmd(form.get("date"));
+  if (!title) return { ok: false, error: "항목을 입력해 주세요" };
+  if (!amount) return { ok: false, error: "금액을 원 단위 숫자로 입력해 주세요" };
+  if (!date) return { ok: false, error: "결제일을 골라 주세요" };
+  const eventId = text(form, "eventId", 40) || null;
+  if (eventId && !(await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } })))
+    return { ok: false, error: "고른 이벤트가 없어요. 다시 골라 주세요" };
+  const me = await getMe();
+  const data = {
+    title,
+    amount,
+    date,
+    category: await validCategory(form.get("category")),
+    eventId,
+    memo: text(form, "memo", 1000) || null,
+    updatedBy: me,
+  };
+  if (!id) {
+    const created = await prisma.expense.create({ data: { ...data, createdBy: me }, select: { id: true } });
+    refresh();
+    return { ok: true, id: created.id };
+  }
+  if (!(await prisma.expense.findUnique({ where: { id }, select: { id: true } }))) return { ok: false, error: "지워진 지출이에요" };
+  // 수정 화면에서 X 를 누른 증빙은 같이 지움 (그 지출의 것만)
+  const remove = form.getAll("removeReceipt").map(String).slice(0, MAX_RECEIPTS * 2);
+  const gone = remove.length
+    ? await prisma.receipt.findMany({ where: { id: { in: remove }, expenseId: id }, select: { id: true, url: true, thumbUrl: true } })
+    : [];
+  await prisma.$transaction([
+    prisma.receipt.deleteMany({ where: { id: { in: gone.map((r) => r.id) } } }),
+    prisma.expense.update({ where: { id }, data }),
+  ]);
+  await deleteBlobs(gone);
+  refresh();
+  return { ok: true, id };
+}
+
+/** 증빙 이미지 한 장 추가. 여러 장이면 작성 화면이 한 장씩 부름 (요청 크기 한도 4MB 안에 들게) */
+export async function addReceipt(form: FormData): Promise<Result> {
+  const expenseId = text(form, "expenseId", 40);
+  const photo = form.get("photo");
+  const thumb = form.get("thumb");
+  if (!(photo instanceof File) || !(thumb instanceof File) || photo.type !== "image/jpeg" || thumb.type !== "image/jpeg")
+    return { ok: false, error: "이미지 형식이 맞지 않아요" };
+  if (photo.size > MAX_RECEIPT || thumb.size > MAX_THUMB) return { ok: false, error: "이미지가 너무 커요" };
+  const count = await prisma.receipt.count({ where: { expenseId } });
+  if (!(await prisma.expense.findUnique({ where: { id: expenseId }, select: { id: true } }))) return { ok: false, error: "지워진 지출이에요" };
+  if (count >= MAX_RECEIPTS) return { ok: false, error: `증빙은 지출 하나에 ${MAX_RECEIPTS}장까지예요` };
+  const me = await getMe();
+  const stored = await storeImage(`receipts/${expenseId}`, photo, thumb);
+  const size = (k: string) => Math.min(10000, Math.max(1, Number(form.get(k)) || 1));
+  await prisma.$transaction([
+    prisma.receipt.create({ data: { expenseId, mime: "image/jpeg", ...stored, width: size("w"), height: size("h"), createdBy: me } }),
+    // 증빙을 붙인 것도 수정으로 남김 (상세의 수정일·수정자)
+    prisma.expense.update({ where: { id: expenseId }, data: { updatedBy: me } }),
+  ]);
+  refresh();
+  return { ok: true };
+}
+
+export async function deleteExpense(id: string, back?: string) {
+  const blobs = await blobsOfExpenses([id]);
+  await prisma.expense.delete({ where: { id } });
+  await deleteBlobs(blobs);
+  refresh();
+  redirect(safeBack(back, "/expenses"));
+}
+
 function categoryFields(form: FormData) {
   const color = String(form.get("color") ?? "");
   return { name: text(form, "name", 20), color: COLOR_PALETTE.includes(color) ? color : COLOR_PALETTE[0] };
@@ -416,6 +501,7 @@ export async function updateCategory(form: FormData) {
   await prisma.$transaction([
     prisma.category.update({ where: { id: cat.id }, data: { name, color } }),
     prisma.event.updateMany({ where: { category: cat.name }, data: { category: name } }),
+    prisma.expense.updateMany({ where: { category: cat.name }, data: { category: name } }),
   ]);
   refresh();
   redirect("/settings/categories");
@@ -427,6 +513,7 @@ export async function deleteCategory(id: string) {
   if (!cat || cat.name === FALLBACK_CATEGORY) return;
   await prisma.$transaction([
     prisma.event.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
+    prisma.expense.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
     prisma.category.delete({ where: { id } }),
   ]);
   refresh();

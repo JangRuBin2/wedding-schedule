@@ -65,3 +65,9 @@ export function fullDate(d: Date): string {
   const [y, m, day] = s.split("-").map(Number);
   return `${y}. ${m}. ${String(day).padStart(2, "0")} (${WD[new Date(`${s}T00:00:00Z`).getUTCDay()]})`;
 }
+
+/** 등록·수정 시각 표시 (KST). 올해면 '11월 15일 오후 7:58', 다른 해면 연도도 */
+export function dateTimeLabel(d: Date, now = new Date()): string {
+  const t = new Date(d.getTime() + KST).toISOString().slice(11, 16);
+  return `${dateLabel(d, now)} ${ampm(t)}`;
+}

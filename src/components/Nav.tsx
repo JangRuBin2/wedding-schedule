@@ -28,7 +28,12 @@ const TABS = [
     icon: I.list,
     match: (p: string) => p.startsWith("/events") || p.startsWith("/tasks") || p.startsWith("/payments"),
   },
-  { href: "/budget", label: "예산", icon: I.heart, match: (p: string) => p.startsWith("/budget") },
+  {
+    href: "/budget",
+    label: "예산",
+    icon: I.heart,
+    match: (p: string) => p.startsWith("/budget") || p.startsWith("/expenses") || p.startsWith("/receipts"),
+  },
   { href: "/settings", label: "마이", icon: I.user, match: (p: string) => p.startsWith("/settings") },
 ];
 

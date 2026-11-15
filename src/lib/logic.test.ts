@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, dateLabel, daysUntil, dueLabel, fromTime, fromYmd, fullDate, timeLabel, ymd } from "./dates";
+import { addDays, dateLabel, dateTimeLabel, daysUntil, dueLabel, fromTime, fromYmd, fullDate, timeLabel, ymd } from "./dates";
 import { budgetSummary, stackPct } from "./budget";
-import { won } from "./money";
+import { parseWon, won } from "./money";
 import { scheduleItems, upcoming } from "./upcoming";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, suggestionsFor, templateOffset } from "./templates";
 import { colorOf, DEFAULT_CATEGORIES, FALLBACK_CATEGORY } from "./meta";
@@ -214,4 +214,21 @@ test("setAmount: 총예산이 없으면 적은 금액이 곧 총예산", () => {
 
 test("allocate: 4,100만 원 중 1,500만 원이 1,499만 원으로 어긋나지 않음", () => {
   assert.equal(allocate(4100, [(1500 / 4100) * 100, 100 - (1500 / 4100) * 100])[0], 1500);
+});
+
+test("parseWon: 원 단위 지출 금액", () => {
+  assert.equal(parseWon("1,250,000"), 1_250_000);
+  assert.equal(parseWon("37500원"), 37_500);
+  assert.equal(parseWon(" 12 000 "), 12_000);
+  assert.equal(parseWon("0"), null);
+  assert.equal(parseWon("3.5"), null);
+  assert.equal(parseWon(""), null);
+  assert.equal(parseWon("99999999999"), null);
+});
+
+test("dateTimeLabel: KST 기준 날짜 + 오전/오후 시각", () => {
+  const now = new Date("2026-11-15T12:00:00+09:00");
+  assert.equal(dateTimeLabel(new Date("2026-11-15T19:58:00+09:00"), now), "11월 15일 오후 7:58");
+  assert.equal(dateTimeLabel(new Date("2026-11-14T15:05:00Z"), now), "11월 15일 오전 12:05");
+  assert.equal(dateTimeLabel(new Date("2025-03-02T09:00:00+09:00"), now), "2025년 3월 2일 오전 9:00");
 });

@@ -13,24 +13,53 @@ import { toggleDue } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-/** 예산 (보기). 카테고리별 예산은 작성 화면에서, 돈은 이벤트의 '결제'에서 쌓임 */
+/** 예산 (보기). 카테고리별 예산은 작성 화면에서, 돈은 이벤트의 '결제'와 '지출 기록'에서 쌓임 */
 export default async function BudgetPage() {
   const now = new Date();
-  const [cats, dues] = await Promise.all([
+  const [cats, dues, expenses] = await Promise.all([
     getCategories(),
     prisma.due.findMany({
       where: { amount: { not: null } },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
       include: { event: { select: { id: true, title: true, category: true } } },
     }),
+    prisma.expense.findMany({
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
+    }),
   ]);
-  const pays = dues.map((d) => ({ amount: d.amount, done: d.done, category: d.event.category }));
+  // 지출 기록은 이미 쓴 돈이라 '결제 완료'와 같이 '지출'로
+  const pays = [
+    ...dues.map((d) => ({ amount: d.amount, done: d.done, category: d.event.category })),
+    ...expenses.map((x) => ({ amount: x.amount, done: true, category: x.category })),
+  ];
   const sum = budgetSummary(cats, pays);
   const upcoming = dues.filter((d) => !d.done).slice(0, 8);
-  const recent = dues
-    .filter((d) => d.done)
-    .sort((a, b) => (b.doneAt ?? b.date).getTime() - (a.doneAt ?? a.date).getTime())
-    .slice(0, 5);
+  // 최근 지출: 결제 완료한 결제 + 지출 기록을 한 목록으로 (결제는 낸 날, 지출은 결제일 기준)
+  const recent = [
+    ...dues
+      .filter((d) => d.done)
+      .map((d) => ({
+        key: `d-${d.id}`,
+        href: `/events/${d.event.id}`,
+        at: d.doneAt ?? d.date,
+        title: d.title,
+        sub: [d.event.title, d.doneBy, d.doneAt && shortDate(d.doneAt)].filter(Boolean).join(" · "),
+        amount: d.amount!,
+        color: colorOf(cats, d.event.category),
+      })),
+    ...expenses.map((x) => ({
+      key: `x-${x.id}`,
+      href: `/expenses/${x.id}`,
+      at: x.date,
+      title: x.title,
+      sub: [shortDate(x.date), x.event?.title ?? x.category, x._count.receipts > 0 && `증빙 ${x._count.receipts}`].filter(Boolean).join(" · "),
+      amount: x.amount,
+      color: colorOf(cats, x.category),
+    })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, 6);
   const maxUsed = Math.max(0, ...sum.rows.map((r) => r.paid + r.planned));
   const rows = sum.rows.filter((r) => r.budget > 0 || r.paid > 0 || r.planned > 0);
 
@@ -38,9 +67,14 @@ export default async function BudgetPage() {
     <main className="space-y-7">
       <header className="flex items-center justify-between pt-2">
         <h1 className="text-[22px] font-bold">예산</h1>
-        <Link href="/budget/edit" className="text-[13px] font-semibold text-save">
-          예산 설정
-        </Link>
+        <span className="flex items-center gap-3">
+          <Link href="/budget/edit" className="text-[13px] font-semibold text-sub">
+            예산 설정
+          </Link>
+          <Link href="/expenses/new" className="btn !px-3 !py-1.5 text-[13px]">
+            + 지출 기록
+          </Link>
+        </span>
       </header>
 
       <section className="hero space-y-4 p-5">
@@ -65,7 +99,7 @@ export default async function BudgetPage() {
       <section>
         <h2 className="section-title">
           카테고리별
-          <Tip align="right">막대의 진한 색은 지출, 연한 색은 결제 예정이에요</Tip>
+          <Tip align="right">막대의 진한 색은 지출(결제 완료 + 지출 기록), 연한 색은 결제 예정이에요</Tip>
         </h2>
         {rows.length > 0 ? (
           <ul className="card ledger !py-1">
@@ -129,29 +163,34 @@ export default async function BudgetPage() {
         )}
       </section>
 
-      {recent.length > 0 && (
-        <section>
-          <h2 className="section-title">최근 지출</h2>
+      <section>
+        <h2 className="section-title">
+          최근 지출
+          <Link href="/expenses" className="text-[12px] font-semibold text-save">
+            지출 내역 {expenses.length > 0 && <span className="num">{expenses.length}건</span>} ›
+          </Link>
+        </h2>
+        {recent.length > 0 ? (
           <ul className="card ledger !py-1">
-            {recent.map((d) => (
-              <li key={d.id}>
-                <Link href={`/events/${d.event.id}`} className="flex items-center gap-3 py-3">
-                  <CategoryDot color={colorOf(cats, d.event.category)} className="h-2.5 w-2.5" />
+            {recent.map((r) => (
+              <li key={r.key}>
+                <Link href={r.href} className="flex items-center gap-3 py-3">
+                  <CategoryDot color={r.color} className="h-2.5 w-2.5" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold">{d.title}</span>
-                    <span className="block truncate text-[12px] text-sub">
-                      {d.event.title}
-                      {d.doneBy && ` · ${d.doneBy}`}
-                      {d.doneAt && ` · ${shortDate(d.doneAt)}`}
-                    </span>
+                    <span className="block truncate text-[15px] font-semibold">{r.title}</span>
+                    <span className="num block truncate text-[12px] text-sub">{r.sub}</span>
                   </span>
-                  <span className="num shrink-0 text-[14px] text-sub">{won(d.amount!)}</span>
+                  <span className="num shrink-0 text-[14px] text-sub">{won(r.amount)}</span>
                 </Link>
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        ) : (
+          <Link href="/expenses/new" className="card block text-[14px] text-sub">
+            쓴 돈을 기록하고 영수증을 붙여 두세요 <b className="font-semibold text-save">지출 기록하기 ›</b>
+          </Link>
+        )}
+      </section>
     </main>
   );
 }

@@ -1,24 +1,9 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { addPhotos } from "@/app/actions";
+import { shrink } from "@/lib/shrink";
 
 const MAX_FILES = 6;
-
-/** 사진을 긴 쪽 max px 의 JPEG 로 줄임 (휴대폰 사진 회전 정보도 반영) */
-async function shrink(file: File, max: number, quality: number) {
-  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const w = Math.round(bmp.width * scale);
-  const h = Math.round(bmp.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
-  bmp.close();
-  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", quality));
-  if (!blob) throw new Error("사진을 처리하지 못했어요");
-  return { blob, w, h };
-}
 
 /** 사진 올리기 (작성 화면). 고르면 미리보기, 저장을 누르면 줄여서 올리고 이벤트 화면으로 */
 export function PhotoUploader({ eventId }: { eventId: string }) {

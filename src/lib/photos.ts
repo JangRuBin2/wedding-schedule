@@ -7,7 +7,7 @@ import { prisma } from "./db";
  */
 export const blobEnabled = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 
-const ACCESS = "private" as const;
+export const ACCESS = "private" as const;
 
 async function upload(pathname: string, body: Buffer | Blob, contentType: string) {
   const r = await put(pathname, body, { access: ACCESS, contentType, addRandomSuffix: true });
@@ -15,11 +15,14 @@ async function upload(pathname: string, body: Buffer | Blob, contentType: string
 }
 
 /** 줄인 사진·미리보기 저장할 곳 (Photo 행에 넣을 값) */
-export async function storePhoto(eventId: string, photo: Blob, thumb: Blob) {
+export const storePhoto = (eventId: string, photo: Blob, thumb: Blob) => storeImage(`photos/${eventId}`, photo, thumb);
+
+/** 줄인 이미지·미리보기를 Blob 의 dir 아래(또는 DB 바이트로) 저장. Photo·Receipt 행에 그대로 넣을 값 */
+export async function storeImage(dir: string, photo: Blob, thumb: Blob) {
   if (blobEnabled()) {
     const [url, thumbUrl] = await Promise.all([
-      upload(`photos/${eventId}/photo.jpg`, photo, "image/jpeg"),
-      upload(`photos/${eventId}/thumb.jpg`, thumb, "image/jpeg"),
+      upload(`${dir}/photo.jpg`, photo, "image/jpeg"),
+      upload(`${dir}/thumb.jpg`, thumb, "image/jpeg"),
     ]);
     return { url, thumbUrl, data: null, thumb: null };
   }

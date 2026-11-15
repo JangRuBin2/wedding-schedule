@@ -7,6 +7,7 @@ import { won } from "@/lib/money";
 import { getCategories } from "@/lib/categories";
 import { ADMIN_SECTION, suggestionsFor } from "@/lib/templates";
 import { CategoryDot } from "@/components/CategoryDot";
+import { ExpenseRow } from "@/components/ExpenseRow";
 import { OptimisticCheck } from "@/components/OptimisticCheck";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Tip } from "@/components/Tip";
@@ -25,10 +26,16 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       dues: { orderBy: [{ date: "asc" }, { createdAt: "asc" }] },
       // 사진 내용(바이트)은 빼고 id 만. 이미지는 /api/photos 에서 따로 받음
       photos: { orderBy: { createdAt: "asc" }, select: { id: true } },
+      expenses: {
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
+      },
     },
   });
   if (!e) notFound();
-  const color = colorOf(await getCategories(), e.category);
+  const cats = await getCategories();
+  const color = colorOf(cats, e.category);
+  const spent = e.expenses.reduce((n, x) => n + x.amount, 0);
 
   const days = e.date ? daysUntil(e.date, now) : null;
   const suggestions = suggestionsFor(e.templateKey, e.tasks);
@@ -226,6 +233,29 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             </ul>
           ) : (
             <p className="text-[14px] text-sub">결제 일정이 없어요</p>
+          )}
+        </div>
+      </section>
+
+      {/* 지출 기록 (실제로 쓴 돈 + 증빙) */}
+      <section>
+        <h2 className="section-title !justify-start">
+          지출 기록
+          {spent > 0 && <small className="num">{won(spent)}</small>}
+          <AddLink href={`/expenses/new?eventId=${e.id}`}>+ 지출</AddLink>
+        </h2>
+        <div className="card !py-1">
+          {e.expenses.length > 0 ? (
+            <ul className="ledger">
+              {e.expenses.map((x) => (
+                <li key={x.id}>
+                  {/* 이벤트 화면에서는 이벤트 이름 대신 카테고리 */}
+                  <ExpenseRow x={{ ...x, event: null }} color={colorOf(cats, x.category)} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-3 text-[14px] text-sub">쓴 돈과 영수증을 남겨 두세요</p>
           )}
         </div>
       </section>

@@ -77,6 +77,9 @@ export const EVENT_SUGGESTIONS = [
 /** 결제 이름 추천 */
 export const DUE_SUGGESTIONS = ["계약금", "중도금", "잔금", "추가금", "헬퍼비"];
 
+/** 지출 기록 항목 추천 */
+export const EXPENSE_SUGGESTIONS = ["계약금", "잔금", "추가금", "헬퍼비", "부케", "식대", "청첩장 인쇄", "답례품", "교통비"];
+
 /** 일정 종류 색. 카테고리 색(파스텔)과 헷갈리지 않게 진하고 서로 확실히 다른 세 색 */
 export const KINDS = {
   event: { label: "이벤트", color: "#c95d72" },

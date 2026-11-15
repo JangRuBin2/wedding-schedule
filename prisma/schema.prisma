@@ -53,6 +53,7 @@ model Event {
   tasks       Task[]
   dues        Due[]
   photos      Photo[]
+  expenses    Expense[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -127,4 +128,47 @@ model Photo {
   createdAt DateTime @default(now())
 
   @@index([eventId])
+}
+
+/// 지출 기록 (실제로 쓴 돈). 예산 탭 '지출'에 결제 완료한 결제(Due)와 같이 쌓임.
+/// 이벤트에 묶지 않아도 됨 (이벤트를 지워도 기록은 남고 연결만 끊김)
+model Expense {
+  id        String    @id @default(cuid())
+  title     String
+  /// 원
+  amount    Int
+  /// 결제일 (그날 09:00 KST 로 저장, src/lib/dates.ts)
+  date      DateTime
+  /// Category.name (이름을 바꾸면 같이 바꿈)
+  category  String    @default("기타")
+  event     Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId   String?
+  memo      String?
+  receipts  Receipt[]
+  createdBy String?
+  createdAt DateTime  @default(now())
+  /// 내용·증빙을 바꿀 때마다
+  updatedAt DateTime  @updatedAt
+  updatedBy String?
+
+  @@index([date])
+  @@index([eventId])
+}
+
+/// 지출 증빙 이미지 (영수증·계약서 사진). 저장 방식은 Photo 와 같음 (Blob 비공개, 없으면 DB 바이트)
+model Receipt {
+  id        String   @id @default(cuid())
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String
+  mime      String
+  url       String?
+  thumbUrl  String?
+  data      Bytes?
+  thumb     Bytes?
+  width     Int
+  height    Int
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([expenseId])
 }

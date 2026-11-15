@@ -1,0 +1,109 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { getCategories } from "@/lib/categories";
+import { dateTimeLabel, fullDate } from "@/lib/dates";
+import { colorOf } from "@/lib/meta";
+import { won } from "@/lib/money";
+import { CategoryDot } from "@/components/CategoryDot";
+
+export const dynamic = "force-dynamic";
+
+/** 지출 상세 (보기 화면). 증빙 이미지, 등록·수정한 때와 사람. 고치기는 작성 화면에서 */
+export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [x, cats] = await Promise.all([
+    prisma.expense.findUnique({
+      where: { id },
+      include: {
+        event: { select: { id: true, title: true } },
+        receipts: { orderBy: { createdAt: "asc" }, select: { id: true, createdBy: true } },
+      },
+    }),
+    getCategories(),
+  ]);
+  if (!x) notFound();
+  // 저장 직후엔 createdAt 과 updatedAt 이 몇 ms 차이라 1초 넘게 벌어졌을 때만 '수정'으로 봄
+  const edited = x.updatedAt.getTime() - x.createdAt.getTime() > 1000;
+
+  return (
+    <main className="space-y-6">
+      <div className="flex items-center justify-between pt-2">
+        <Link href="/expenses" className="text-[13px] font-semibold text-sub">‹ 지출 내역</Link>
+        <Link href={`/expenses/${x.id}/edit`} className="text-[13px] font-semibold text-save">수정</Link>
+      </div>
+
+      <section className="hero space-y-1 p-5">
+        <p className="flex items-center gap-1.5 text-[13px] text-sub">
+          <CategoryDot color={colorOf(cats, x.category)} />
+          {x.category}
+        </p>
+        <h1 className="text-[20px] leading-snug font-bold break-words">{x.title}</h1>
+        <p className="num text-[28px] leading-tight font-bold">{x.amount.toLocaleString("ko-KR")}원</p>
+        {x.amount >= 10_000 && <p className="num text-[13px] text-sub">{won(x.amount)}</p>}
+      </section>
+
+      <dl className="card ledger !py-1 text-[14px]">
+        <Row label="결제일" value={<span className="num">{fullDate(x.date)}</span>} />
+        <Row
+          label="이벤트"
+          value={
+            x.event ? (
+              <Link href={`/events/${x.event.id}`} className="font-semibold text-save underline-offset-2 hover:underline">
+                {x.event.title} ›
+              </Link>
+            ) : (
+              <span className="text-faint">연결 안 함</span>
+            )
+          }
+        />
+        {x.memo && <Row label="메모" value={<span className="whitespace-pre-wrap break-words">{x.memo}</span>} />}
+      </dl>
+
+      <section>
+        <h2 className="section-title">
+          증빙 자료 <small className="num">{x.receipts.length}장</small>
+        </h2>
+        {x.receipts.length > 0 ? (
+          <ul className="grid grid-cols-3 gap-2">
+            {x.receipts.map((r, i) => (
+              <li key={r.id}>
+                <Link href={`/receipts/${r.id}`} className="block aspect-square overflow-hidden rounded-xl bg-card">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/receipts/${r.id}?size=thumb`} alt={`증빙 ${i + 1}`} className="h-full w-full object-cover" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Link href={`/expenses/${x.id}/edit`} className="card block text-[14px] text-sub">
+            아직 증빙이 없어요 <b className="font-semibold text-save">증빙 추가 ›</b>
+          </Link>
+        )}
+      </section>
+
+      <dl className="card ledger !py-1 text-[13px]">
+        <Row label="등록" value={<Who at={x.createdAt} by={x.createdBy} />} />
+        <Row label="마지막 수정" value={edited ? <Who at={x.updatedAt} by={x.updatedBy} /> : <span className="text-faint">수정한 적 없음</span>} />
+      </dl>
+    </main>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-4 py-3">
+      <dt className="w-[76px] shrink-0 text-sub">{label}</dt>
+      <dd className="min-w-0 flex-1 text-right">{value}</dd>
+    </div>
+  );
+}
+
+function Who({ at, by }: { at: Date; by: string | null }) {
+  return (
+    <span className="num">
+      {dateTimeLabel(at)}
+      {by && <b className="ml-1.5 font-semibold">· {by}</b>}
+    </span>
+  );
+}
