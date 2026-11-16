@@ -14,6 +14,8 @@ import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
 import { safeBack } from "@/lib/back";
+import { parseNoteDoc } from "@/lib/note-doc";
+import type { Prisma } from "@/generated/prisma/client";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, templateOffset } from "@/lib/templates";
 
 /** 보기 화면은 열 때마다 서버에서 새로 읽지만, 앞뒤로 이동할 때 남는 화면 캐시도 비움 */
@@ -445,6 +447,37 @@ export async function deleteExpense(id: string, back?: string) {
   await deleteBlobs(blobs);
   refresh();
   redirect(safeBack(back, "/expenses"));
+}
+
+/* ───────── 메모 ───────── */
+
+/**
+ * 메모 저장 (id 가 없으면 새로). 본문은 에디터 JSON 문자열로 받아 스키마로 검사한 뒤 저장.
+ * 둘이 같은 메모를 동시에 고치면 나중에 저장한 쪽이 남음
+ */
+export async function saveNote(input: { id?: string; title?: string; content: string }): Promise<Result<{ id: string }>> {
+  const id = String(input?.id ?? "").slice(0, 40);
+  const title = String(input?.title ?? "").trim().slice(0, 80);
+  const parsed = parseNoteDoc(input?.content);
+  if (!parsed.ok) return parsed;
+  if (!title && !parsed.text && !parsed.drawings) return { ok: false, error: "제목이나 내용을 적어 주세요" };
+  const me = await getMe();
+  const data = { title, content: parsed.doc as Prisma.InputJsonValue, text: parsed.text, drawings: parsed.drawings, updatedBy: me };
+  if (!id) {
+    const created = await prisma.note.create({ data: { ...data, createdBy: me }, select: { id: true } });
+    refresh();
+    return { ok: true, id: created.id };
+  }
+  const updated = await prisma.note.updateMany({ where: { id }, data });
+  if (!updated.count) return { ok: false, error: "지워진 메모예요" };
+  refresh();
+  return { ok: true, id };
+}
+
+export async function deleteNote(id: string) {
+  await prisma.note.deleteMany({ where: { id } });
+  refresh();
+  redirect("/notes");
 }
 
 function categoryFields(form: FormData) {

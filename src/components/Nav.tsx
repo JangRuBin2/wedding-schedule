@@ -12,6 +12,12 @@ const I = {
     </>
   ),
   heart: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
+  note: (
+    <>
+      <path d="M14.5 3.5H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" />
+      <path d="M14.5 3.5V8H19M8.5 12.5h7M8.5 16h4.5" />
+    </>
+  ),
   user: (
     <>
       <circle cx="12" cy="8" r="3.5" />
@@ -34,6 +40,7 @@ const TABS = [
     icon: I.heart,
     match: (p: string) => p.startsWith("/budget") || p.startsWith("/expenses") || p.startsWith("/receipts"),
   },
+  { href: "/notes", label: "메모", icon: I.note, match: (p: string) => p.startsWith("/notes") },
   { href: "/settings", label: "마이", icon: I.user, match: (p: string) => p.startsWith("/settings") },
 ];
 
@@ -43,7 +50,7 @@ export function Nav() {
   if (path.startsWith("/login") || path.startsWith("/start")) return null;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:sticky md:top-0 md:bottom-auto md:border-t-0 md:border-b md:pb-0">
-      <ul className="mx-auto grid max-w-xl grid-cols-4">
+      <ul className="mx-auto grid max-w-xl grid-cols-5">
         {TABS.map((t) => {
           const active = t.match(path);
           return (

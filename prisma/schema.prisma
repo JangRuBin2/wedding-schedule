@@ -172,3 +172,21 @@ model Receipt {
 
   @@index([expenseId])
 }
+
+/// 메모 (이벤트와 따로 쓰는 자유 메모). 본문은 Tiptap 문서 JSON: 글(제목·목록·체크리스트 등) 사이에 손그림 블록이 들어감.
+/// 저장할 때 서버에서 스키마로 검사하고(src/lib/note-doc.ts) 목록용 글(text)과 그림 수(drawings)를 같이 저장
+model Note {
+  id        String   @id @default(cuid())
+  /// 비어 있으면 목록에서 본문 첫 줄을 제목처럼 보여 줌
+  title     String   @default("")
+  content   Json
+  /// 본문 글만 뽑은 것 (목록 미리보기)
+  text      String   @default("")
+  drawings  Int      @default(0)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@index([updatedAt])
+}

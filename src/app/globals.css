@@ -329,3 +329,141 @@
     box-shadow: 0 2px 8px rgb(59 52 55 / 0.2);
   }
 }
+
+/* ── 메모 본문 (에디터·보기 화면 같은 모양) ── */
+@layer components {
+  /* 손그림 판: 테마와 상관없이 밝은 종이 (펜 색이 어두운 테마에서도 보이게) */
+  .draw-paper {
+    background: #fffdfa;
+  }
+
+  .note-body {
+    font-size: 15.5px;
+    line-height: 1.7;
+    word-break: break-word;
+  }
+  .note-body > * + * {
+    margin-top: 0.6em;
+  }
+  .note-body h2 {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 1.1em;
+  }
+  .note-body h3 {
+    font-size: 16.5px;
+    font-weight: 700;
+    line-height: 1.45;
+    margin-top: 0.9em;
+  }
+  .note-body > :first-child {
+    margin-top: 0;
+  }
+  .note-body ul,
+  .note-body ol {
+    padding-left: 1.4em;
+  }
+  .note-body ul {
+    list-style: disc;
+  }
+  .note-body ol {
+    list-style: decimal;
+  }
+  .note-body li + li,
+  .note-body li > ul,
+  .note-body li > ol {
+    margin-top: 0.2em;
+  }
+  .note-body li::marker {
+    color: var(--color-sub);
+  }
+  .note-body blockquote {
+    border-left: 3px solid var(--color-pink);
+    padding: 2px 0 2px 12px;
+    color: var(--color-sub);
+  }
+  .note-body hr {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+    margin: 1.1em 0;
+  }
+  .note-body u {
+    text-underline-offset: 3px;
+  }
+  .note-body s {
+    color: var(--color-sub);
+  }
+
+  /* 체크리스트 */
+  .note-body ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0.1em;
+  }
+  .note-body ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+  }
+  .note-body ul[data-type="taskList"] li > label {
+    flex-shrink: 0;
+    margin-top: 0.33em;
+    user-select: none;
+  }
+  .note-body ul[data-type="taskList"] li > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .note-body ul[data-type="taskList"] li > label input,
+  .note-body .task-box {
+    appearance: none;
+    display: block;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: 1.5px solid var(--color-faint);
+    background: var(--color-card) no-repeat center / 12px;
+    cursor: pointer;
+  }
+  .note-body .task-box {
+    margin-top: 0.33em;
+    cursor: default;
+  }
+  .note-body ul[data-type="taskList"] li > label input:checked,
+  .note-body li[data-checked="true"] > .task-box {
+    border-color: var(--color-save);
+    background-color: var(--color-save);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  }
+  .note-body li[data-checked="true"] > div {
+    color: var(--color-sub);
+    text-decoration: line-through;
+  }
+
+  .note-body .note-drawing {
+    margin: 0.9em 0;
+  }
+
+  /* 에디터 */
+  .note-editable {
+    outline: none;
+    min-height: 40dvh;
+    padding-top: 14px;
+  }
+  .note-editable p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: var(--color-faint);
+    pointer-events: none;
+  }
+  .note-editable .ProseMirror-selectednode .note-drawing,
+  .note-editable .note-drawing.ProseMirror-selectednode {
+    outline: none;
+  }
+  .note-editable .ProseMirror-gapcursor:after {
+    border-top-color: var(--color-ink);
+  }
+}

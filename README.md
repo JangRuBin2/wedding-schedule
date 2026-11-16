@@ -57,7 +57,7 @@ npm test
 ## 폴더
 
 ```
-src/app/            화면 (보기: /, /events, /events/[id], /budget, /settings · 작성: /new(추가), */new, */edit, */memo)
+src/app/            화면 (보기: /, /events, /events/[id], /budget, /notes, /notes/[id], /settings · 작성: /new(추가), */new, */edit, */memo)
 src/app/actions.ts  저장(서버 액션)
 src/lib/templates.ts  기본 20개 이벤트·추천 일정·추천 할 일
 src/lib/upcoming.ts   곧 할 일·캘린더 일정 계산
@@ -67,5 +67,7 @@ src/lib/allocate.ts   예산 설정(비율·슬라이더·최소 금액)
 src/lib/theme.ts      화면 테마 쿠키
 src/lib/money.ts      금액 입력·표시
 src/lib/photos.ts     사진 저장소 (Vercel Blob 비공개, 연결 전엔 DB)
-prisma/schema.prisma  Wedding · Category · Event · Task · Due · Photo · User
+src/lib/note-doc.ts   메모 본문 스키마(Tiptap)·손그림 획·저장 검사
+src/components/notes/ 메모 에디터, 그리기 모드, 보기 화면 렌더러
+prisma/schema.prisma  Wedding · Category · Event · Task · Due · Photo · Expense · Receipt · Note · User
 ```
