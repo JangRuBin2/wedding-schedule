@@ -80,12 +80,12 @@ test("곧 할 일: 밀린 것 먼저, 30일 안만, 끝난 건 빼고, 같은 �
         { id: "t2", content: "날짜 없음", date: null, done: false },
         { id: "t3", content: "끝남", date: d("2026-11-01"), done: true },
       ],
-      dues: [
-        { id: "d1", title: "계약금", date: d("2026-11-05"), done: false },
-        { id: "d2", title: "잔금", date: d("2027-05-01"), done: false },
+      expenses: [
+        { id: "d1", title: "계약금", date: d("2026-11-05"), paid: false },
+        { id: "d2", title: "잔금", date: d("2027-05-01"), paid: false },
       ],
     },
-    { id: "e2", title: "날짜 미정", category: "기타", date: null, done: false, tasks: [], dues: [] },
+    { id: "e2", title: "날짜 미정", category: "기타", date: null, done: false, tasks: [], expenses: [] },
   ]);
   // 날짜 있는 것만: e1, t1, t3, d1, d2
   assert.equal(items.length, 5);

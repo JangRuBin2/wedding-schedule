@@ -49,7 +49,7 @@ export default async function NewEntryPage({ searchParams }: { searchParams: SP 
             due: (
               <>
                 <EventSelect events={events} />
-                <DueFields date={date} isNew />
+                <DueFields date={date} />
               </>
             ),
           }}

@@ -1,4 +1,4 @@
-/** 예산 탭 계산. 결제(Due)의 금액을 그 이벤트 카테고리 예산에 쌓음: 냈어요 = 낸 돈, 아직 = 낼 돈 */
+/** 예산 탭 계산. 결제·지출(Expense)의 금액을 그 카테고리 예산에 쌓음: 냈어요 = 지출, 아직 = 결제 예정 (금액 미정은 빠짐) */
 type Cat = { name: string; color: string; budget: number };
 type Pay = { amount: number | null; done: boolean; category: string };
 

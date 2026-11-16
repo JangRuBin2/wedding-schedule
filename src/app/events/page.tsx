@@ -26,7 +26,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
   const rows: ManagedEvent[] = events.map((e) => {
     const days = e.date ? daysUntil(e.date, now) : null;
     const tasksDone = e.tasks.filter((t) => t.done).length;
-    const openDues = e.dues.filter((d) => !d.done).length;
+    const openDues = e.expenses.filter((x) => !x.paid).length;
     return {
       id: e.id,
       title: e.title,
@@ -41,7 +41,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SP })
             ? `${dateLabel(e.date, now)} · ${dueLabel(days!)}`
             : "날짜 미정",
         e.tasks.length > 0 && `할 일 ${tasksDone}/${e.tasks.length}`,
-        openDues > 0 && `결제 ${openDues}`,
+        openDues > 0 && `결제 예정 ${openDues}`,
       ]
         .filter(Boolean)
         .join(" · "),

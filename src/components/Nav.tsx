@@ -32,7 +32,7 @@ const TABS = [
     href: "/events",
     label: "리스트",
     icon: I.list,
-    match: (p: string) => p.startsWith("/events") || p.startsWith("/tasks") || p.startsWith("/payments"),
+    match: (p: string) => p.startsWith("/events") || p.startsWith("/tasks"),
   },
   {
     href: "/budget",

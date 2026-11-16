@@ -52,7 +52,7 @@ npm test
 4. 사진 저장소: Storage → Create → **Blob**, 접근을 **Private**으로 만들고 이 프로젝트에 연결 (`BLOB_READ_WRITE_TOKEN` 이 자동으로 들어가요)
    - 연결하기 전에는 사진을 DB에 저장해요. 연결한 뒤 배포하면 DB에 있던 사진을 Blob으로 옮기고, 그때 못 옮긴 사진은 처음 볼 때 옮겨요
    - Blob은 비공개라 파일 주소만으로는 열리지 않고, 화면은 `/api/photos/[id]` 로 앱 잠금 안에서만 보여요
-5. 배포하면 빌드할 때 `prisma db push` 로 테이블이 만들어지고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요
+5. 운영 배포(`VERCEL_ENV=production`)를 빌드할 때만 `prisma db push` 로 테이블을 맞추고, `scripts/merge-dues.ts` 가 옛 결제를 결제·지출로 옮기고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요. 미리보기(브랜치) 빌드는 DB 를 건드리지 않아요
 
 ## 폴더
 
@@ -69,5 +69,5 @@ src/lib/money.ts      금액 입력·표시
 src/lib/photos.ts     사진 저장소 (Vercel Blob 비공개, 연결 전엔 DB)
 src/lib/note-doc.ts   메모 본문 스키마(Tiptap)·손그림 획·저장 검사
 src/components/notes/ 메모 에디터, 그리기 모드, 보기 화면 렌더러
-prisma/schema.prisma  Wedding · Category · Event · Task · Due · Photo · Expense · Receipt · Note · User
+prisma/schema.prisma  Wedding · Category · Event · Task · Photo · Expense(결제·지출) · Receipt · Note · User (Due 는 옮긴 뒤 비는 옛 테이블)
 ```

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCategories } from "@/lib/categories";
-import { dateTimeLabel, fullDate } from "@/lib/dates";
+import { dateTimeLabel, daysUntil, dueLabel, fullDate } from "@/lib/dates";
+import { setPaid } from "@/app/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { colorOf } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { CategoryDot } from "@/components/CategoryDot";
@@ -25,11 +27,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
   if (!x) notFound();
   // 저장 직후엔 createdAt 과 updatedAt 이 몇 ms 차이라 1초 넘게 벌어졌을 때만 '수정'으로 봄
   const edited = x.updatedAt.getTime() - x.createdAt.getTime() > 1000;
+  const days = daysUntil(x.date, new Date());
 
   return (
     <main className="space-y-6">
       <div className="flex items-center justify-between pt-2">
-        <Link href="/expenses" className="text-[13px] font-semibold text-sub">‹ 지출 내역</Link>
+        <Link href="/expenses" className="text-[13px] font-semibold text-sub">‹ 결제·지출 내역</Link>
         <Link href={`/expenses/${x.id}/edit`} className="text-[13px] font-semibold text-save">수정</Link>
       </div>
 
@@ -37,14 +40,36 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         <p className="flex items-center gap-1.5 text-[13px] text-sub">
           <CategoryDot color={colorOf(cats, x.category)} />
           {x.category}
+          <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-bold ${x.paid ? "bg-card/70 text-sub" : "bg-save-soft text-save"}`}>
+            {x.paid ? "결제 완료" : `결제 예정 · ${dueLabel(days)}`}
+          </span>
         </p>
         <h1 className="text-[20px] leading-snug font-bold break-words">{x.title}</h1>
-        <p className="num text-[28px] leading-tight font-bold">{x.amount.toLocaleString("ko-KR")}원</p>
-        {x.amount >= 10_000 && <p className="num text-[13px] text-sub">{won(x.amount)}</p>}
+        {x.amount != null ? (
+          <>
+            <p className="num text-[28px] leading-tight font-bold">{x.amount.toLocaleString("ko-KR")}원</p>
+            {x.amount >= 10_000 && <p className="num text-[13px] text-sub">{won(x.amount)}</p>}
+          </>
+        ) : (
+          <p className="text-[18px] font-semibold text-sub">금액 미정</p>
+        )}
+        {!x.paid &&
+          (x.amount == null ? (
+            <Link href={`/expenses/${x.id}/edit?pay=1`} className="btn mt-3 block w-full text-center">
+              금액 넣고 결제 완료로 바꾸기
+            </Link>
+          ) : (
+            <form action={setPaid.bind(null, x.id, true)} className="pt-3">
+              <SubmitButton pendingText="저장 중…" className="w-full">
+                결제 완료로 바꾸기
+              </SubmitButton>
+            </form>
+          ))}
       </section>
 
       <dl className="card ledger !py-1 text-[14px]">
-        <Row label="결제일" value={<span className="num">{fullDate(x.date)}</span>} />
+        <Row label={x.paid ? "결제일" : "낼 날"} value={<span className={`num ${!x.paid && days < 0 ? "font-semibold text-spend" : ""}`}>{fullDate(x.date)}</span>} />
+        {x.paid && x.paidAt && <Row label="결제 완료" value={<Who at={x.paidAt} by={x.paidBy} />} />}
         <Row
           label="이벤트"
           value={

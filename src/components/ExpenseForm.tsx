@@ -10,12 +10,13 @@ import { SuggestInput } from "./SuggestInput";
 const MAX_RECEIPTS = 10;
 
 type Existing = { id: string; width: number; height: number };
-type Initial = { id?: string; title?: string; amount?: number; date: string; memo?: string };
+type Initial = { id?: string; title?: string; amount?: number | null; date: string; memo?: string; paid?: boolean };
 
 const groupDigits = (s: string) => s.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /**
- * 지출 기록 작성·수정 (작성 화면). 칸을 먼저 저장하고, 새로 고른 증빙 이미지를 줄여서 한 장씩 올림.
+ * 결제·지출 작성·수정 (작성 화면). '결제 완료'(낸 돈) / '결제 예정'(낼 날·금액)을 고르고,
+ * 칸을 먼저 저장한 뒤 새로 고른 증빙 이미지를 줄여서 한 장씩 올림.
  * 업로드가 중간에 실패하면 지출은 이미 저장된 상태라 그 id 로 다시 시도(중복으로 안 생김)
  * 카테고리·이벤트 칸은 서버에서 그린 걸 받아서 끼움
  */
@@ -33,7 +34,10 @@ export function ExpenseForm({
   const router = useRouter();
   const [savedId, setSavedId] = useState(initial.id ?? "");
   const [amount, setAmount] = useState(initial.amount ? groupDigits(String(initial.amount)) : "");
+  const [paid, setPaid] = useState(initial.paid ?? true);
   const [removed, setRemoved] = useState<string[]>([]);
+  // 저장하면서 이미 지운 증빙 (업로드가 중간에 실패해도 다시 보이지 않게)
+  const [gone, setGone] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -47,7 +51,7 @@ export function ExpenseForm({
     return () => next.forEach((u) => URL.revokeObjectURL(u));
   }, [files]);
 
-  const kept = receipts.filter((r) => !removed.includes(r.id));
+  const kept = receipts.filter((r) => !removed.includes(r.id) && !gone.includes(r.id));
   const room = MAX_RECEIPTS - kept.length - files.length;
   const amountNum = Number(amount.replace(/,/g, ""));
 
@@ -69,6 +73,7 @@ export function ExpenseForm({
       const saved = await saveExpense(fd);
       if (!saved.ok) throw new Error(saved.error);
       setSavedId(saved.id);
+      setGone((g) => [...g, ...removed]);
       setRemoved([]);
       // 한 장씩 올리고, 올라간 건 목록에서 빼 둠 (실패하면 남은 것만 다시)
       const queue = [...files];
@@ -103,13 +108,32 @@ export function ExpenseForm({
         if (!busy) submit(e.currentTarget);
       }}
     >
+      <fieldset className="space-y-1.5">
+        <legend className="label mb-1.5">상태</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { v: true, label: "결제 완료", sub: "이미 낸 돈" },
+            { v: false, label: "결제 예정", sub: "낼 날·금액 챙기기" },
+          ].map((o) => (
+            <label
+              key={o.label}
+              className={`cursor-pointer rounded-xl border px-3 py-2.5 text-center ${paid === o.v ? "border-save bg-save-soft" : "border-line"}`}
+            >
+              <input type="radio" name="status" value={o.v ? "paid" : "planned"} checked={paid === o.v} onChange={() => setPaid(o.v)} className="sr-only" />
+              <span className="block text-[14px] font-bold">{o.label}</span>
+              <span className="block text-[11px] text-sub">{o.sub}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div className="space-y-1.5">
         <label htmlFor="expense-title" className="label block">항목</label>
         <SuggestInput id="expense-title" name="title" defaultValue={initial.title} suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="expense-amount" className="label block">사용한 금액</label>
+        <label htmlFor="expense-amount" className="label block">{paid ? "낸 금액" : "낼 금액 (모르면 비워 두기)"}</label>
         <span className="relative block">
           <input
             id="expense-amount"
@@ -119,7 +143,7 @@ export function ExpenseForm({
             placeholder="예: 1,250,000"
             inputMode="numeric"
             autoComplete="off"
-            required
+            required={paid}
             className="input num pr-9 text-right"
           />
           <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
@@ -128,7 +152,7 @@ export function ExpenseForm({
       </div>
 
       <label className="block space-y-1.5">
-        <span className="label">결제일</span>
+        <span className="label">{paid ? "결제일" : "낼 날"}</span>
         <input name="date" type="date" defaultValue={initial.date} required className="input" />
       </label>
 

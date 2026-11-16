@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { addDays, fromTime, fromYmd } from "@/lib/dates";
-import { parseMan, parseWon } from "@/lib/money";
+import { parseWon } from "@/lib/money";
 import { checkPlan } from "@/lib/allocate";
 import { THEME_COOKIE } from "@/lib/theme";
 import { blobsOfEvents, deleteBlobs, storeImage, storePhoto } from "@/lib/photos";
@@ -158,7 +158,7 @@ export async function createEvent(form: FormData) {
 export async function createEntry(form: FormData) {
   const kind = form.get("kind");
   if (kind === "task") return addTask(form);
-  if (kind === "due") return addDue(form);
+  if (kind === "due") return addPayment(form);
   return createEvent(form);
 }
 
@@ -181,7 +181,7 @@ export async function deleteEvent(id: string) {
 
 const idList = (ids: unknown) => (Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string").slice(0, 500) : []);
 
-/** 리스트 탭에서 여러 개 골라 지우기 (할 일·결제도 같이 지워짐) */
+/** 리스트 탭에서 여러 개 골라 지우기 (할 일·사진도 같이 지워짐. 결제·지출은 남고 연결만 끊김) */
 export async function deleteEvents(ids: string[]) {
   const list = idList(ids);
   if (list.length) {
@@ -189,6 +189,22 @@ export async function deleteEvents(ids: string[]) {
     await prisma.event.deleteMany({ where: { id: { in: list } } });
     await deleteBlobs(blobs);
   }
+  refresh();
+}
+
+/**
+ * 리스트 탭에서 끌어서 바꾼 순서 저장. ids = 화면에 보이던 이벤트를 새 순서대로.
+ * 카테고리로 걸러 본 상태면 그 이벤트들이 원래 차지하던 순서 자리만 서로 바꿔서, 안 보이던 이벤트 자리는 그대로
+ */
+export async function reorderEvents(ids: string[]) {
+  const list = [...new Set(idList(ids))];
+  if (list.length < 2) return;
+  const rows = await prisma.event.findMany({ where: { id: { in: list } }, select: { id: true, order: true, createdAt: true } });
+  if (rows.length !== list.length) return;
+  const slots = rows.sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime()).map((r) => r.order);
+  // 같은 order 가 겹쳐 있으면(옛 데이터) 자리를 1씩 벌려서 순서가 확실히 남게
+  for (let i = 1; i < slots.length; i++) if (slots[i] <= slots[i - 1]) slots[i] = slots[i - 1] + 1;
+  await prisma.$transaction(list.map((id, i) => prisma.event.update({ where: { id }, data: { order: slots[i] } })));
   refresh();
 }
 
@@ -320,47 +336,53 @@ export async function toggleTask(id: string) {
   refresh();
 }
 
-// ── 결제 ──
+// ── 결제 (낼 예정 ↔ 냈어요) ──
 
-function dueFields(form: FormData) {
-  return {
-    title: text(form, "title", 60),
-    date: fromYmd(form.get("date")),
-    amount: parseMan(form.get("amount")),
-    memo: text(form, "memo", 500) || null,
-  };
+/**
+ * 결제·지출 한 건을 '냈어요' / '아직'으로. 뒤집기가 아니라 원하는 상태를 받음
+ * (둘이 같이 쓸 때 상대가 이미 바꾼 걸 다시 뒤집지 않게)
+ */
+export async function setPaid(id: string, paid: boolean) {
+  if (typeof id !== "string") return;
+  const me = await getMe();
+  await prisma.expense.updateMany({
+    where: { id, paid: !paid },
+    data: paid ? { paid: true, paidAt: new Date(), paidBy: me, updatedBy: me } : { paid: false, paidAt: null, paidBy: null, updatedBy: me },
+  });
+  refresh();
 }
 
-export async function addDue(form: FormData) {
-  const eventId = text(form, "eventId", 40);
-  const { title, date, amount, memo } = dueFields(form);
-  if (!title || !date) return;
-  // '이미 냈어요'면 바로 낸 것으로
-  const paid = form.get("paid") === "on" ? await checkData(false) : {};
-  await prisma.due.create({ data: { eventId, title, date, amount, memo, ...paid } });
-  refresh();
-  goBack(form, `/events/${eventId}`);
+/** 캘린더·체크 칸용: 지금 화면에 보이는 상태(done)의 반대로 */
+export async function togglePaid(id: string, shownDone: boolean) {
+  await setPaid(id, !shownDone);
 }
 
-export async function updateDue(form: FormData) {
-  const { title, date, amount, memo } = dueFields(form);
-  if (!title || !date) return;
-  const due = await prisma.due.update({ where: { id: text(form, "id", 40) }, data: { title, date, amount, memo } });
+/** 추가 화면(/new)의 '결제': 증빙 없이 칸만 (증빙은 저장한 뒤 상세에서 붙임) */
+async function addPayment(form: FormData) {
+  const title = text(form, "title", 60);
+  const date = fromYmd(form.get("date"));
+  const paid = form.get("status") === "paid";
+  const amount = parseWon(form.get("amount"));
+  if (!title || !date || (paid && !amount)) return;
+  const eventId = text(form, "eventId", 40) || null;
+  const event = eventId ? await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, category: true } }) : null;
+  const me = await getMe();
+  await prisma.expense.create({
+    data: {
+      title,
+      amount,
+      date,
+      paid,
+      ...(paid ? { paidAt: new Date(), paidBy: me } : {}),
+      category: event?.category ?? FALLBACK_CATEGORY,
+      eventId: event?.id ?? null,
+      memo: text(form, "memo", 1000) || null,
+      createdBy: me,
+      updatedBy: me,
+    },
+  });
   refresh();
-  goBack(form, `/events/${due.eventId}`);
-}
-
-export async function deleteDue(id: string, back?: string) {
-  const due = await prisma.due.delete({ where: { id } });
-  refresh();
-  redirect(safeBack(back, `/events/${due.eventId}`));
-}
-
-export async function toggleDue(id: string) {
-  const due = await prisma.due.findUnique({ where: { id } });
-  if (!due) return;
-  await prisma.due.update({ where: { id }, data: await checkData(due.done) });
-  refresh();
+  goBack(form, event ? `/events/${event.id}` : "/budget");
 }
 
 // ── 카테고리 ──
@@ -380,19 +402,28 @@ type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 export async function saveExpense(form: FormData): Promise<Result<{ id: string }>> {
   const id = text(form, "id", 40);
   const title = text(form, "title", 60);
-  const amount = parseWon(form.get("amount"));
+  const rawAmount = text(form, "amount", 30);
+  const amount = parseWon(rawAmount);
   const date = fromYmd(form.get("date"));
+  const paid = form.get("status") !== "planned";
   if (!title) return { ok: false, error: "항목을 입력해 주세요" };
-  if (!amount) return { ok: false, error: "금액을 원 단위 숫자로 입력해 주세요" };
-  if (!date) return { ok: false, error: "결제일을 골라 주세요" };
+  if (rawAmount && !amount) return { ok: false, error: "금액은 원 단위 숫자로 20억 원까지 입력해 주세요" };
+  if (paid && !amount) return { ok: false, error: "낸 돈은 금액을 입력해 주세요" };
+  if (!date) return { ok: false, error: paid ? "결제일을 골라 주세요" : "낼 날을 골라 주세요" };
   const eventId = text(form, "eventId", 40) || null;
   if (eventId && !(await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } })))
     return { ok: false, error: "고른 이벤트가 없어요. 다시 골라 주세요" };
   const me = await getMe();
+  const before = id ? await prisma.expense.findUnique({ where: { id }, select: { paid: true } }) : null;
+  if (id && !before) return { ok: false, error: "지워진 결제예요" };
+  // '결제 완료'로 바뀔 때만 낸 때·사람을 새로 남김
+  const paidInfo = paid ? (before?.paid ? {} : { paidAt: new Date(), paidBy: me }) : { paidAt: null, paidBy: null };
   const data = {
     title,
     amount,
     date,
+    paid,
+    ...paidInfo,
     category: await validCategory(form.get("category")),
     eventId,
     memo: text(form, "memo", 1000) || null,
@@ -403,7 +434,6 @@ export async function saveExpense(form: FormData): Promise<Result<{ id: string }
     refresh();
     return { ok: true, id: created.id };
   }
-  if (!(await prisma.expense.findUnique({ where: { id }, select: { id: true } }))) return { ok: false, error: "지워진 지출이에요" };
   // 수정 화면에서 X 를 누른 증빙은 같이 지움 (그 지출의 것만)
   const remove = form.getAll("removeReceipt").map(String).slice(0, MAX_RECEIPTS * 2);
   const gone = remove.length

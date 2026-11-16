@@ -11,7 +11,7 @@ import { ExpenseRow } from "@/components/ExpenseRow";
 import { OptimisticCheck } from "@/components/OptimisticCheck";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Tip } from "@/components/Tip";
-import { addSuggestedTasks, toggleDue, toggleEvent, toggleTask } from "../../actions";
+import { addSuggestedTasks, toggleEvent, toggleTask } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     where: { id },
     include: {
       tasks: { orderBy: [{ done: "asc" }, { date: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
-      dues: { orderBy: [{ date: "asc" }, { createdAt: "asc" }] },
       // 사진 내용(바이트)은 빼고 id 만. 이미지는 /api/photos 에서 따로 받음
       photos: { orderBy: { createdAt: "asc" }, select: { id: true } },
+      // 결제·지출: 낼 예정 먼저(가까운 날부터), 그다음 낸 것
       expenses: {
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ paid: "asc" }, { date: "asc" }, { createdAt: "asc" }],
         include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
       },
     },
@@ -35,14 +35,13 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   if (!e) notFound();
   const cats = await getCategories();
   const color = colorOf(cats, e.category);
-  const spent = e.expenses.reduce((n, x) => n + x.amount, 0);
 
   const days = e.date ? daysUntil(e.date, now) : null;
   const suggestions = suggestionsFor(e.templateKey, e.tasks);
   const base = `/events/${e.id}`;
   const time = timeLabel(e.startTime, e.endTime);
-  const paid = e.dues.filter((d) => d.done).reduce((n, d) => n + (d.amount ?? 0), 0);
-  const planned = e.dues.filter((d) => !d.done).reduce((n, d) => n + (d.amount ?? 0), 0);
+  const paid = e.expenses.filter((x) => x.paid).reduce((n, x) => n + (x.amount ?? 0), 0);
+  const planned = e.expenses.filter((x) => !x.paid).reduce((n, x) => n + (x.amount ?? 0), 0);
 
   return (
     <main className="space-y-7">
@@ -179,83 +178,30 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      {/* 결제 */}
+      {/* 결제·지출 (낼 예정 + 낸 돈, 증빙) */}
       <section>
         <h2 className="section-title !justify-start">
-          결제
+          결제·지출
           {(paid > 0 || planned > 0) && (
             <small className="num">
-              {paid > 0 && `${won(paid)} 결제`}
+              {paid > 0 && `${won(paid)} 냄`}
               {paid > 0 && planned > 0 && " · "}
               {planned > 0 && `${won(planned)} 예정`}
             </small>
           )}
-          <AddLink href={`${base}/payments/new`}>+ 결제</AddLink>
-        </h2>
-        <div className="card">
-          {e.dues.length > 0 ? (
-            <ul className="ledger">
-              {e.dues.map((d) => {
-                const dDays = daysUntil(d.date, now);
-                return (
-                  <li key={d.id} className="flex items-center gap-3">
-                    <Link href={`/payments/${d.id}/edit`} className="flex min-w-0 flex-1 items-center gap-3 py-3">
-                      <CategoryDot color={KINDS.due.color} className="h-2.5 w-2.5 rotate-45 !rounded-[2px]" />
-                      <span className="min-w-0 flex-1">
-                        <span className={`block truncate text-[15px] font-semibold ${d.done ? "text-sub line-through" : ""}`}>{d.title}</span>
-                        <span className="num block truncate text-[12px] text-sub">
-                          {d.done ? (
-                            `결제 완료${d.doneBy ? ` · ${d.doneBy}` : ""}${d.doneAt ? ` · ${shortDate(d.doneAt)}` : ""}`
-                          ) : (
-                            <span className={dDays < 0 ? "font-semibold text-spend" : ""}>
-                              {dateLabel(d.date, now)} · {dueLabel(dDays)}
-                            </span>
-                          )}
-                          {d.memo && ` · ${d.memo}`}
-                        </span>
-                      </span>
-                      {d.amount != null && (
-                        <span className={`num shrink-0 text-[14px] font-semibold ${d.done ? "text-sub" : ""}`}>{won(d.amount)}</span>
-                      )}
-                    </Link>
-                    <form action={toggleDue.bind(null, d.id)}>
-                      <SubmitButton
-                        base="btn-ghost"
-                        pendingText="…"
-                        className={`!px-2.5 !py-1.5 text-[12px] ${d.done ? "!text-sub" : "!bg-save-soft !text-save"}`}
-                      >
-                        {d.done ? "취소" : "결제 완료"}
-                      </SubmitButton>
-                    </form>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-[14px] text-sub">결제 일정이 없어요</p>
-          )}
-        </div>
-      </section>
-
-      {/* 지출 기록 (실제로 쓴 돈 + 증빙) */}
-      <section>
-        <h2 className="section-title !justify-start">
-          지출 기록
-          {spent > 0 && <small className="num">{won(spent)}</small>}
-          <AddLink href={`/expenses/new?eventId=${e.id}`}>+ 지출</AddLink>
+          <AddLink href={`/expenses/new?eventId=${e.id}&planned=1`}>+ 추가</AddLink>
         </h2>
         <div className="card !py-1">
           {e.expenses.length > 0 ? (
             <ul className="ledger">
               {e.expenses.map((x) => (
                 <li key={x.id}>
-                  {/* 이벤트 화면에서는 이벤트 이름 대신 카테고리 */}
-                  <ExpenseRow x={{ ...x, event: null }} color={colorOf(cats, x.category)} />
+                  <ExpenseRow x={x} color={KINDS.due.color} now={now} showEvent={false} />
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="py-3 text-[14px] text-sub">쓴 돈과 영수증을 남겨 두세요</p>
+            <p className="py-3 text-[14px] text-sub">계약금·잔금 낼 날이나 쓴 돈을 적어 두세요</p>
           )}
         </div>
       </section>

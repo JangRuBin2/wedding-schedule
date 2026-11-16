@@ -29,7 +29,8 @@ type EventRow = {
   endTime?: string | null;
   place?: string | null;
   tasks: { id: string; content: string; date: Date | null; done: boolean }[];
-  dues: { id: string; title: string; date: Date; done: boolean; amount?: number | null }[];
+  /** 이벤트에 연결된 결제·지출 (paid = 냈어요) */
+  expenses: { id: string; title: string; date: Date; paid: boolean; amount?: number | null }[];
 };
 
 /** 이벤트·할 일·결제 중 날짜가 있는 것을 한 줄씩 */
@@ -41,7 +42,7 @@ export function scheduleItems(events: EventRow[]): ScheduleItem[] {
         ? [{ ...base, kind: "event" as const, id: e.id, title: e.title, date: e.date, done: e.done, startTime: e.startTime, endTime: e.endTime, place: e.place }]
         : []),
       ...e.tasks.filter((t) => t.date).map((t) => ({ ...base, kind: "task" as const, id: t.id, title: t.content, date: t.date!, done: t.done })),
-      ...e.dues.map((d) => ({ ...base, kind: "due" as const, id: d.id, title: d.title, date: d.date, done: d.done, amount: d.amount })),
+      ...e.expenses.map((d) => ({ ...base, kind: "due" as const, id: d.id, title: d.title, date: d.date, done: d.paid, amount: d.amount })),
     ];
   });
 }

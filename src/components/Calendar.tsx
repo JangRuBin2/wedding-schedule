@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { toggleDue, toggleEvent, toggleTask } from "@/app/actions";
+import { togglePaid, toggleEvent, toggleTask } from "@/app/actions";
 import { KINDS, type CategoryInfo, type Kind } from "@/lib/meta";
 import { LinkPending } from "./LinkPending";
 import { OptimisticCheck } from "./OptimisticCheck";
@@ -29,7 +29,12 @@ export type CalItem = {
 const WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const WEEK_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const KIND_ORDER = { event: 0, task: 1, due: 2 } as const;
-const TOGGLE = { event: toggleEvent, task: toggleTask, due: toggleDue } as const;
+const TOGGLE = {
+  event: (id: string) => toggleEvent(id),
+  task: (id: string) => toggleTask(id),
+  // 결제는 화면에 보이던 상태의 반대로 저장 (상대가 이미 바꿨으면 그대로)
+  due: (id: string, done: boolean) => togglePaid(id, done),
+} as const;
 const pad = (n: number) => String(n).padStart(2, "0");
 const sortItems = (a: CalItem, b: CalItem) => a.ymd.localeCompare(b.ymd) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
 const weekday = (ymd: string) => WEEK_KO[new Date(`${ymd}T00:00:00Z`).getUTCDay()];
@@ -240,7 +245,7 @@ function ItemRow({ it, compact = false }: { it: CalItem; compact?: boolean }) {
           {it.time && <span className="num text-[11px] text-sub">{it.time}</span>}
         </span>
       </Link>
-      <OptimisticCheck done={!!it.done} action={TOGGLE[it.kind].bind(null, it.id)} label={it.label} />
+      <OptimisticCheck done={!!it.done} action={() => TOGGLE[it.kind](it.id, !!it.done)} label={it.label} />
     </li>
   );
 }

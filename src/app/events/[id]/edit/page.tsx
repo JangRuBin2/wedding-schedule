@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [e, cats] = await Promise.all([
-    prisma.event.findUnique({ where: { id }, include: { _count: { select: { tasks: true, dues: true } } } }),
+    prisma.event.findUnique({ where: { id }, include: { _count: { select: { tasks: true, expenses: true, photos: true } } } }),
     getCategories(),
   ]);
   if (!e) notFound();
@@ -26,9 +26,9 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       </form>
       <form action={deleteEvent.bind(null, e.id)} className="text-center">
         <SubmitButton base="btn-ghost" className="!text-spend" pendingText="삭제 중…">이 이벤트 삭제</SubmitButton>
-        {(e._count.tasks > 0 || e._count.dues > 0) && (
+        {(e._count.tasks > 0 || e._count.photos > 0 || e._count.expenses > 0) && (
           <p className="mt-1.5 text-[12px] text-sub">
-            할 일 {e._count.tasks}개{e._count.dues > 0 && `, 결제 ${e._count.dues}개`}도 함께 삭제돼요
+            {[e._count.tasks > 0 && `할 일 ${e._count.tasks}개`, e._count.photos > 0 && `사진 ${e._count.photos}장`].filter(Boolean).join(", ")}{(e._count.tasks > 0 || e._count.photos > 0) && "도 함께 삭제돼요. "}{e._count.expenses > 0 && `결제·지출 ${e._count.expenses}건은 남고 이벤트 연결만 끊겨요`}
           </p>
         )}
       </form>

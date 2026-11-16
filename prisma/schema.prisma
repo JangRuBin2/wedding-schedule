@@ -77,7 +77,8 @@ model Task {
   @@index([eventId])
 }
 
-/// 결제 (계약금·중도금·잔금). done = 냈어요. 금액은 예산 탭에 쌓임
+/// (옛 결제) 지금은 쓰지 않음. 결제·지출이 Expense 하나로 합쳐짐 (scripts/merge-dues.ts 가 배포할 때 옮기고 지움).
+/// 옮기기 전에 db push 가 테이블을 지우지 않게 남겨 둠 — 운영에서 비어 있는 걸 확인한 뒤 다음 배포에서 지움
 model Due {
   id        String    @id @default(cuid())
   event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -130,15 +131,19 @@ model Photo {
   @@index([eventId])
 }
 
-/// 지출 기록 (실제로 쓴 돈). 예산 탭 '지출'에 결제 완료한 결제(Due)와 같이 쌓임.
+/// 결제·지출 (돈 한 건). paid = 냈어요(예산 '지출'), 아니면 낼 예정(예산 '결제 예정', 캘린더에 결제로 보임).
 /// 이벤트에 묶지 않아도 됨 (이벤트를 지워도 기록은 남고 연결만 끊김)
 model Expense {
   id        String    @id @default(cuid())
   title     String
-  /// 원
-  amount    Int
-  /// 결제일 (그날 09:00 KST 로 저장, src/lib/dates.ts)
+  /// 원. 금액을 아직 모르면 비움 (낼 예정일 때. 화면에서 낸 돈은 금액을 받음)
+  amount    Int?
+  /// 냈으면 결제일, 아니면 낼 날 (그날 09:00 KST 로 저장, src/lib/dates.ts)
   date      DateTime
+  paid      Boolean   @default(true)
+  /// '결제 완료'를 누른 때·사람
+  paidAt    DateTime?
+  paidBy    String?
   /// Category.name (이름을 바꾸면 같이 바꿈)
   category  String    @default("기타")
   event     Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
@@ -153,6 +158,7 @@ model Expense {
 
   @@index([date])
   @@index([eventId])
+  @@index([paid])
 }
 
 /// 지출 증빙 이미지 (영수증·계약서 사진). 저장 방식은 Photo 와 같음 (Blob 비공개, 없으면 DB 바이트)

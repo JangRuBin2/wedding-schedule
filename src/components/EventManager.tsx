@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { completeEvents, deleteEvents, toggleEvent } from "@/app/actions";
 import { OptimisticCheck } from "./OptimisticCheck";
+import { EventReorder } from "./EventReorder";
 
 export type ManagedEvent = {
   id: string;
@@ -20,6 +21,7 @@ export type ManagedEvent = {
  */
 export function EventManager({ events }: { events: ManagedEvent[] }) {
   const [selecting, setSelecting] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   const all = picked.size === events.length && events.length > 0;
@@ -42,6 +44,7 @@ export function EventManager({ events }: { events: ManagedEvent[] }) {
     });
 
   if (events.length === 0) return null;
+  if (reordering) return <EventReorder events={events} onDone={() => setReordering(false)} />;
 
   return (
     <div className="space-y-3">
@@ -53,9 +56,16 @@ export function EventManager({ events }: { events: ManagedEvent[] }) {
         ) : (
           <span className="text-[13px] text-sub">{events.length}개</span>
         )}
-        <button type="button" onClick={() => (selecting ? exit() : setSelecting(true))} className="text-[13px] font-semibold text-save">
-          {selecting ? "취소" : "선택"}
-        </button>
+        <span className="flex items-center gap-4">
+          {!selecting && events.length > 1 && (
+            <button type="button" onClick={() => setReordering(true)} className="text-[13px] font-semibold text-sub">
+              순서 바꾸기
+            </button>
+          )}
+          <button type="button" onClick={() => (selecting ? exit() : setSelecting(true))} className="text-[13px] font-semibold text-save">
+            {selecting ? "취소" : "선택"}
+          </button>
+        </span>
       </div>
 
       <ul className="card ledger !py-1">
@@ -108,7 +118,7 @@ export function EventManager({ events }: { events: ManagedEvent[] }) {
               type="button"
               disabled={!picked.size || pending}
               onClick={() => {
-                if (confirm(`이벤트 ${picked.size}개를 삭제할까요?\n포함된 할 일과 결제도 함께 삭제되며 되돌릴 수 없어요.`)) run(deleteEvents);
+                if (confirm(`이벤트 ${picked.size}개를 삭제할까요?\n포함된 할 일과 사진도 함께 삭제되며 되돌릴 수 없어요. (결제·지출 기록은 남아요)`)) run(deleteEvents);
               }}
               className="btn-ghost !bg-spend-soft !text-spend disabled:opacity-40"
             >
