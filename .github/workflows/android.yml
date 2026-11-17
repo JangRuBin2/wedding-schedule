@@ -1,0 +1,55 @@
+# 플레이스토어용 안드로이드 앱 빌드 (손으로 실행: Actions → Android (Play Store) → Run workflow)
+# 필요한 저장소 Secrets: ANDROID_KEYSTORE_BASE64 (업로드 키 파일을 base64 로), ANDROID_KEYSTORE_PASSWORD,
+#                       ANDROID_KEY_ALIAS (보통 upload), ANDROID_KEY_PASSWORD (없으면 저장소 비밀번호와 같게)
+# 결과(.aab/.apk)는 이 실행의 Artifacts 에서 받음. 공개 저장소라도 Artifacts 는 로그인한 사람만, 90일 뒤 사라짐
+name: Android (Play Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "버전 번호 (올릴 때마다 1씩 키우기)"
+        required: true
+        default: "1"
+      version_name:
+        description: "보이는 버전 (예: 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 서명 키 꺼내기
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > android/upload.keystore
+      - name: 빌드
+        env:
+          KEYSTORE: android/upload.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          npm install --no-save --no-audit --no-fund @bubblewrap/core@1.27.0
+          node scripts/android/build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bomnal-android-${{ inputs.version_name }}-${{ inputs.version_code }}
+          path: android/build/out/
+      - name: 서명 키 지우기
+        if: always()
+        run: rm -f android/upload.keystore

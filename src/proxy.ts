@@ -6,8 +6,8 @@ import { kakaoEnabled, readSession, SESSION_COOKIE } from "@/lib/session";
  * - KAKAO_REST_API_KEY 가 있으면 카카오 로그인 (여러 커플이 쓰는 서비스 모드)
  * - 없으면 커플 하나만 쓰는 모드: Basic Auth (아이디 아무거나, 비밀번호 = APP_PASSWORD). 비워 두면 잠그지 않음
  */
-/** 로그인 없이 열리는 주소: 개인정보처리방침·이용약관 (스토어 심사·가입 전 안내용) */
-const PUBLIC = ["/privacy", "/terms"];
+/** 로그인 없이 열리는 주소: 개인정보처리방침·이용약관(스토어 심사), 앱 확인 파일(TWA), 서비스 워커·연결 없음 화면 */
+const PUBLIC = ["/privacy", "/terms", "/.well-known/assetlinks.json", "/sw.js", "/offline.html"];
 
 /**
  * 플레이스토어 앱(TWA)은 시작 주소에 ?app=twa 를 붙여 열림 → 쿠키로 기억해서 앱 안에선 외부 결제(후원 링크)를 숨김

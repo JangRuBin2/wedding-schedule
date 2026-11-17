@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>연결 없음 · 봄날</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #f7f4f1; --ink: #3b3437; --sub: #8b8186; --btn: #8d7b83; --on: #fff; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #1a1718; --ink: #f0eaec; --sub: #ada2a7; --btn: #c9b3bc; --on: #1a1718; } }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
+        font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; text-align: center; padding: 24px; }
+      img { width: 72px; height: 72px; border-radius: 18px; }
+      h1 { font-size: 20px; margin: 20px 0 8px; }
+      p { color: var(--sub); font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
+      button { border: 0; border-radius: 14px; padding: 12px 22px; font-size: 15px; font-weight: 700; background: var(--btn); color: var(--on); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icon-192.png" alt="" />
+      <h1>인터넷에 연결되어 있지 않아요</h1>
+      <p>봄날은 우리 둘이 같은 일정을 보도록<br />늘 최신 내용을 서버에서 받아 와요.</p>
+      <button onclick="location.reload()">다시 시도</button>
+    </main>
+  </body>
+</html>

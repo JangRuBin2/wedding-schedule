@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import { getTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-dvh">
         <Nav />
+        <ServiceWorker />
         <div className="mx-auto max-w-xl px-4 pt-5 pb-32 md:pt-6 md:pb-12">{children}</div>
       </body>
     </html>
