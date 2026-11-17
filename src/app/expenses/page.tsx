@@ -23,7 +23,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: SP 
   const [all, cats] = await Promise.all([
     prisma.expense.findMany({
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
+      include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
     }),
     getCategories(),
   ]);

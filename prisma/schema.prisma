@@ -161,7 +161,8 @@ model Expense {
   @@index([paid])
 }
 
-/// 지출 증빙 이미지 (영수증·계약서 사진). 저장 방식은 Photo 와 같음 (Blob 비공개, 없으면 DB 바이트)
+/// 지출 첨부: 증빙 이미지(영수증·계약서 사진, 줄여서 저장 + 미리보기) 또는 파일(PDF·한글·엑셀 등 5MB 까지, 그대로 저장).
+/// 저장 방식은 Photo 와 같음 (Blob 비공개, 없으면 DB 바이트). 파일은 2MB 씩 나눠 받아 data 에 이어 붙인 뒤 ready
 model Receipt {
   id        String   @id @default(cuid())
   expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -171,8 +172,14 @@ model Receipt {
   thumbUrl  String?
   data      Bytes?
   thumb     Bytes?
+  /// 이미지만 (파일은 0)
   width     Int
   height    Int
+  /// 파일만: 올린 파일 이름·크기(바이트)
+  name      String?
+  size      Int?
+  /// 파일을 나눠 올리는 중이면 false (화면에 안 보임)
+  ready     Boolean  @default(true)
   createdBy String?
   createdAt DateTime @default(now())
 

@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { addReceipt, saveExpense } from "@/app/actions";
+import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, startReceiptFile } from "@/app/actions";
+import { ACCEPT, CHUNK, fileMime, MAX_FILE, sizeLabel } from "@/lib/attach";
+import { FileTile } from "./FileTile";
 import { EXPENSE_SUGGESTIONS } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { shrink } from "@/lib/shrink";
@@ -9,14 +11,35 @@ import { SuggestInput } from "./SuggestInput";
 
 const MAX_RECEIPTS = 10;
 
-type Existing = { id: string; width: number; height: number };
+type Existing = { id: string; width: number; height: number; mime: string; name: string | null; size: number | null };
+
+const isImage = (f: File) => f.type.startsWith("image/") && !fileMime(f.name);
+
+/** 파일 하나를 2MB 씩 나눠 올림 (Vercel 요청 한도 4.5MB 때문에 한 번에 못 보냄) */
+async function uploadFile(expenseId: string, file: File, onProgress: (pct: number) => void) {
+  const start = await startReceiptFile(expenseId, { name: file.name, size: file.size });
+  if (!start.ok) throw new Error(start.error);
+  for (let offset = 0; offset < file.size; offset += CHUNK) {
+    const part = new FormData();
+    part.set("id", start.id);
+    part.set("offset", String(offset));
+    part.set("chunk", file.slice(offset, offset + CHUNK), "chunk");
+    // 조각 하나는 한 번 더 시도 (같은 조각을 두 번 보내도 서버가 한 번만 붙임)
+    let r = await appendReceiptChunk(part).catch(() => null);
+    if (!r?.ok) r = await appendReceiptChunk(part);
+    if (!r.ok) throw new Error(r.error);
+    onProgress(Math.min(100, Math.round(((offset + CHUNK) / file.size) * 100)));
+  }
+  const done = await finishReceiptFile(start.id);
+  if (!done.ok) throw new Error(done.error);
+}
 type Initial = { id?: string; title?: string; amount?: number | null; date: string; memo?: string; paid?: boolean };
 
 const groupDigits = (s: string) => s.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /**
  * 결제·지출 작성·수정 (작성 화면). '결제 완료'(낸 돈) / '결제 예정'(낼 날·금액)을 고르고,
- * 칸을 먼저 저장한 뒤 새로 고른 증빙 이미지를 줄여서 한 장씩 올림.
+ * 칸을 먼저 저장한 뒤 새로 고른 첨부를 하나씩 올림: 이미지는 줄여서, 파일(PDF·한글·엑셀 등 5MB 까지)은 그대로 나눠서.
  * 업로드가 중간에 실패하면 지출은 이미 저장된 상태라 그 id 로 다시 시도(중복으로 안 생김)
  * 카테고리·이벤트 칸은 서버에서 그린 걸 받아서 끼움
  */
@@ -46,9 +69,9 @@ export function ExpenseForm({
   const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const next = files.map((f) => URL.createObjectURL(f));
+    const next = files.map((f) => (isImage(f) ? URL.createObjectURL(f) : ""));
     setUrls(next);
-    return () => next.forEach((u) => URL.revokeObjectURL(u));
+    return () => next.forEach((u) => u && URL.revokeObjectURL(u));
   }, [files]);
 
   const kept = receipts.filter((r) => !removed.includes(r.id) && !gone.includes(r.id));
@@ -56,9 +79,17 @@ export function ExpenseForm({
   const amountNum = Number(amount.replace(/,/g, ""));
 
   const pick = (list: FileList | null) => {
-    const picked = [...(list ?? [])].filter((f) => f.type.startsWith("image/"));
+    const problems: string[] = [];
+    const picked = [...(list ?? [])].filter((f) => {
+      if (isImage(f)) return true;
+      if (!fileMime(f.name)) problems.push(`${f.name}: 이 형식은 첨부할 수 없어요`);
+      else if (f.size > MAX_FILE) problems.push(`${f.name}: 5MB 가 넘어요 (${sizeLabel(f.size)})`);
+      else return true;
+      return false;
+    });
     const fit = picked.slice(0, Math.max(0, room));
-    setError(picked.length > fit.length ? `증빙은 지출 하나에 ${MAX_RECEIPTS}장까지예요. ${fit.length}장만 추가했어요` : "");
+    if (picked.length > fit.length) problems.push(`첨부는 하나에 ${MAX_RECEIPTS}개까지예요. ${fit.length}개만 추가했어요`);
+    setError(problems.join("\n"));
     setFiles((prev) => [...prev, ...fit]);
   };
 
@@ -78,7 +109,12 @@ export function ExpenseForm({
       // 한 장씩 올리고, 올라간 건 목록에서 빼 둠 (실패하면 남은 것만 다시)
       const queue = [...files];
       for (let i = 0; i < queue.length; i++) {
-        setStatus(`증빙 올리는 중 ${i + 1}/${queue.length}`);
+        setStatus(`첨부 올리는 중 ${i + 1}/${queue.length}`);
+        if (!isImage(queue[i])) {
+          await uploadFile(saved.id, queue[i], (pct) => setStatus(`첨부 올리는 중 ${i + 1}/${queue.length} · ${pct}%`));
+          setFiles((prev) => prev.filter((f) => f !== queue[i]));
+          continue;
+        }
         const full = await shrink(queue[i], 2000, 0.85);
         const thumb = await shrink(queue[i], 400, 0.75);
         const one = new FormData();
@@ -166,17 +202,32 @@ export function ExpenseForm({
 
       <fieldset className="space-y-2">
         <legend className="label mb-1.5 flex w-full items-center justify-between">
-          <span>증빙 자료 (선택)</span>
+          <span>첨부 (선택)</span>
           <span className="num text-[12px] font-normal text-faint">
             {kept.length + files.length}/{MAX_RECEIPTS}
           </span>
         </legend>
         <ul className="grid grid-cols-3 gap-2">
           {kept.map((r) => (
-            <Thumb key={r.id} src={`/api/receipts/${r.id}?size=thumb`} alt="저장된 증빙" onRemove={() => setRemoved((p) => [...p, r.id])} disabled={busy} />
+            <Thumb
+              key={r.id}
+              src={r.name ? "" : `/api/receipts/${r.id}?size=thumb`}
+              file={r.name ? { name: r.name, size: r.size ?? 0 } : undefined}
+              alt={r.name ?? "저장된 증빙"}
+              onRemove={() => setRemoved((p) => [...p, r.id])}
+              disabled={busy}
+            />
           ))}
-          {urls.map((u, i) => (
-            <Thumb key={u} src={u} alt={`새 증빙 ${i + 1}`} isNew onRemove={() => setFiles((p) => p.filter((_, j) => j !== i))} disabled={busy} />
+          {files.map((f, i) => (
+            <Thumb
+              key={`${f.name}-${f.size}-${i}`}
+              src={urls[i] ?? ""}
+              file={isImage(f) ? undefined : { name: f.name, size: f.size }}
+              alt={isImage(f) ? `새 증빙 ${i + 1}` : f.name}
+              isNew
+              onRemove={() => setFiles((p) => p.filter((_, j) => j !== i))}
+              disabled={busy}
+            />
           ))}
           {room > 0 && (
             <li>
@@ -187,7 +238,7 @@ export function ExpenseForm({
                 className="flex aspect-square w-full flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-line bg-paper text-sub disabled:opacity-50"
               >
                 <span className="text-[22px] leading-none" aria-hidden>＋</span>
-                <span className="text-[12px] font-semibold">이미지 추가</span>
+                <span className="text-[12px] font-semibold">이미지·파일</span>
               </button>
             </li>
           )}
@@ -195,7 +246,7 @@ export function ExpenseForm({
         <input
           ref={picker}
           type="file"
-          accept="image/*"
+          accept={ACCEPT}
           multiple
           className="sr-only"
           tabIndex={-1}
@@ -204,10 +255,10 @@ export function ExpenseForm({
             e.target.value = "";
           }}
         />
-        <p className="text-[12px] text-faint">영수증·계약서·이체 내역 캡처 등. 여러 장 한 번에 고를 수 있어요</p>
+        <p className="text-[12px] text-faint">영수증·이체 내역 캡처 같은 이미지(자동으로 줄임)와 계약서 PDF·한글·워드·엑셀 파일(5MB 까지). 여러 개 한 번에 고를 수 있어요</p>
         {removed.length > 0 && (
           <p className="text-[12px] text-spend">
-            저장하면 증빙 {removed.length}장이 지워져요{" "}
+            저장하면 첨부 {removed.length}개가 지워져요{" "}
             <button type="button" onClick={() => setRemoved([])} className="font-semibold underline underline-offset-2">
               되돌리기
             </button>
@@ -215,7 +266,7 @@ export function ExpenseForm({
         )}
       </fieldset>
 
-      {error && <p role="alert" className="text-[13px] font-semibold text-spend">{error}</p>}
+      {error && <p role="alert" className="text-[13px] font-semibold whitespace-pre-line text-spend">{error}</p>}
       <button type="submit" disabled={busy} aria-busy={busy} className="btn w-full disabled:opacity-60">
         {status || (savedId && files.length && !initial.id ? `남은 증빙 ${files.length}장 다시 올리기` : "저장")}
       </button>
@@ -223,11 +274,29 @@ export function ExpenseForm({
   );
 }
 
-function Thumb({ src, alt, onRemove, disabled, isNew }: { src: string; alt: string; onRemove: () => void; disabled: boolean; isNew?: boolean }) {
+function Thumb({
+  src,
+  alt,
+  onRemove,
+  disabled,
+  isNew,
+  file,
+}: {
+  src: string;
+  alt: string;
+  onRemove: () => void;
+  disabled: boolean;
+  isNew?: boolean;
+  file?: { name: string; size: number };
+}) {
   return (
     <li className="relative aspect-square overflow-hidden rounded-xl bg-paper">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="h-full w-full object-cover" />
+      {file ? (
+        <FileTile name={file.name} size={file.size} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={alt} className="h-full w-full object-cover" />
+      )}
       {isNew && <span className="absolute bottom-1 left-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">새로</span>}
       <button
         type="button"

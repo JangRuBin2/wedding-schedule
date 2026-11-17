@@ -37,7 +37,7 @@ export function ExpenseRow({ x, color, now = new Date(), showEvent = true }: { x
               </span>
             )}
             {` · ${where}`}
-            {x._count.receipts > 0 && ` · 증빙 ${x._count.receipts}`}
+            {x._count.receipts > 0 && ` · 첨부 ${x._count.receipts}`}
           </span>
         </span>
         <span className={`num shrink-0 text-[14px] font-semibold ${x.amount == null ? "!font-normal text-faint" : x.paid ? "" : "text-sub"}`}>

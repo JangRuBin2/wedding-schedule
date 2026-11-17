@@ -34,6 +34,12 @@ export async function storeImage(dir: string, photo: Blob, thumb: Blob) {
   };
 }
 
+/** 첨부 파일 하나를 Blob 의 dir 아래에 그대로 저장하고 주소를 돌려줌 (Blob 을 안 쓰면 null → DB 바이트 그대로) */
+export async function storeFileToBlob(dir: string, name: string, bytes: Uint8Array, contentType: string) {
+  if (!blobEnabled()) return null;
+  return upload(`${dir}/${name}`, Buffer.from(bytes), contentType);
+}
+
 /** 사진 내용 (Response 본문으로 바로 쓸 수 있게). 없으면 null */
 export async function readPhoto(id: string, size: "full" | "thumb") {
   const p = await prisma.photo.findUnique({ where: { id }, select: { mime: true, url: true, thumbUrl: true } });

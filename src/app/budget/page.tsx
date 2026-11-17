@@ -20,7 +20,7 @@ export default async function BudgetPage() {
     getCategories(),
     prisma.expense.findMany({
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
+      include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
     }),
   ]);
   const sum = budgetSummary(

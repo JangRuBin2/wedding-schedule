@@ -24,7 +24,9 @@ export default async function EditExpensePage({
   const [x, cats, events] = await Promise.all([
     prisma.expense.findUnique({
       where: { id },
-      include: { receipts: { orderBy: { createdAt: "asc" }, select: { id: true, width: true, height: true } } },
+      include: {
+        receipts: { where: { ready: true }, orderBy: { createdAt: "asc" }, select: { id: true, width: true, height: true, mime: true, name: true, size: true } },
+      },
     }),
     getCategories(),
     prisma.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
@@ -41,7 +43,7 @@ export default async function EditExpensePage({
       />
       <form action={deleteExpense.bind(null, x.id, "/expenses")} className="text-center">
         <SubmitButton base="btn-ghost" className="!text-spend" pendingText="삭제 중…">
-          이 기록 삭제{x.receipts.length > 0 && ` (증빙 ${x.receipts.length}장 포함)`}
+          이 기록 삭제{x.receipts.length > 0 && ` (첨부 ${x.receipts.length}개 포함)`}
         </SubmitButton>
       </form>
     </main>

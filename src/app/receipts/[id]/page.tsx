@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { dateTimeLabel } from "@/lib/dates";
 
@@ -10,9 +10,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const r = await prisma.receipt.findUnique({
     where: { id },
-    select: { id: true, width: true, height: true, createdAt: true, createdBy: true, expense: { select: { id: true, title: true } } },
+    select: { id: true, width: true, height: true, name: true, ready: true, createdAt: true, createdBy: true, expense: { select: { id: true, title: true } } },
   });
-  if (!r) notFound();
+  if (!r || !r.ready) notFound();
+  // 파일 첨부는 이 화면 대신 파일 자체로 (PDF 는 열고, 나머지는 내려받기)
+  if (r.name) redirect(`/api/receipts/${r.id}`);
   return (
     <main className="space-y-4">
       <Link href={`/expenses/${r.expense.id}`} className="block pt-2 text-[13px] font-semibold text-sub">‹ {r.expense.title}</Link>

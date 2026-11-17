@@ -5,6 +5,7 @@ import { getCategories } from "@/lib/categories";
 import { dateTimeLabel, daysUntil, dueLabel, fullDate } from "@/lib/dates";
 import { setPaid } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
+import { FileTile } from "@/components/FileTile";
 import { colorOf } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { CategoryDot } from "@/components/CategoryDot";
@@ -19,7 +20,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       where: { id },
       include: {
         event: { select: { id: true, title: true } },
-        receipts: { orderBy: { createdAt: "asc" }, select: { id: true, createdBy: true } },
+        receipts: { where: { ready: true }, orderBy: { createdAt: "asc" }, select: { id: true, createdBy: true, name: true, size: true, mime: true } },
       },
     }),
     getCategories(),
@@ -87,22 +88,29 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
 
       <section>
         <h2 className="section-title">
-          증빙 자료 <small className="num">{x.receipts.length}장</small>
+          첨부 <small className="num">{x.receipts.length}개</small>
         </h2>
         {x.receipts.length > 0 ? (
           <ul className="grid grid-cols-3 gap-2">
             {x.receipts.map((r, i) => (
               <li key={r.id}>
-                <Link href={`/receipts/${r.id}`} className="block aspect-square overflow-hidden rounded-xl bg-card">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/receipts/${r.id}?size=thumb`} alt={`증빙 ${i + 1}`} className="h-full w-full object-cover" />
-                </Link>
+                {r.name ? (
+                  // 파일: PDF 는 새 탭에서 열고, 나머지는 내려받기
+                  <a href={`/api/receipts/${r.id}`} target="_blank" rel="noreferrer" className="block aspect-square" title={r.name}>
+                    <FileTile name={r.name} size={r.size ?? 0} />
+                  </a>
+                ) : (
+                  <Link href={`/receipts/${r.id}`} className="block aspect-square overflow-hidden rounded-xl bg-card">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/api/receipts/${r.id}?size=thumb`} alt={`증빙 ${i + 1}`} className="h-full w-full object-cover" />
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
         ) : (
           <Link href={`/expenses/${x.id}/edit`} className="card block text-[14px] text-sub">
-            아직 증빙이 없어요 <b className="font-semibold text-save">증빙 추가 ›</b>
+            아직 첨부가 없어요 <b className="font-semibold text-save">영수증·계약서 붙이기 ›</b>
           </Link>
         )}
       </section>

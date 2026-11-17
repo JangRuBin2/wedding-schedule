@@ -8,7 +8,8 @@ import { addDays, fromTime, fromYmd } from "@/lib/dates";
 import { parseWon } from "@/lib/money";
 import { checkPlan } from "@/lib/allocate";
 import { THEME_COOKIE } from "@/lib/theme";
-import { blobsOfEvents, deleteBlobs, storeImage, storePhoto } from "@/lib/photos";
+import { blobsOfEvents, deleteBlobs, storeFileToBlob, storeImage, storePhoto } from "@/lib/photos";
+import { cleanName, fileMime, MAX_FILE } from "@/lib/attach";
 import { blobsOfExpenses } from "@/lib/receipts";
 import { COLOR_PALETTE, FALLBACK_CATEGORY } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
@@ -461,6 +462,60 @@ export async function addReceipt(form: FormData): Promise<Result> {
     prisma.receipt.create({ data: { expenseId, mime: "image/jpeg", ...stored, width: size("w"), height: size("h"), createdBy: me } }),
     // 증빙을 붙인 것도 수정으로 남김 (상세의 수정일·수정자)
     prisma.expense.update({ where: { id: expenseId }, data: { updatedBy: me } }),
+  ]);
+  refresh();
+  return { ok: true };
+}
+
+/* 첨부 파일 (PDF·한글·엑셀 등): 시작 → 2MB 조각 이어 붙이기 → 끝내기. 이미지는 위 addReceipt 로 줄여서 */
+
+const CHUNK_MAX = 2_200_000;
+
+/** 파일 첨부 시작: 형식·크기·개수를 확인하고 비어 있는(ready=false) 첨부 행을 만듦 */
+export async function startReceiptFile(expenseId: string, file: { name: string; size: number }): Promise<Result<{ id: string }>> {
+  const name = cleanName(String(file?.name ?? ""));
+  const size = Math.floor(Number(file?.size));
+  const mime = fileMime(name);
+  if (!mime) return { ok: false, error: `${name}: 이 형식은 첨부할 수 없어요 (PDF·한글·워드·엑셀·파워포인트·txt·csv·zip)` };
+  if (!(size > 0 && size <= MAX_FILE)) return { ok: false, error: `${name}: 파일은 5MB 까지 첨부할 수 있어요` };
+  if (!(await prisma.expense.findUnique({ where: { id: String(expenseId) }, select: { id: true } }))) return { ok: false, error: "지워진 결제예요" };
+  // 중간에 끊겨 남은 조각은 정리
+  await prisma.receipt.deleteMany({ where: { expenseId, ready: false, createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) } } });
+  if ((await prisma.receipt.count({ where: { expenseId } })) >= MAX_RECEIPTS) return { ok: false, error: `첨부는 하나에 ${MAX_RECEIPTS}개까지예요` };
+  const r = await prisma.receipt.create({
+    data: { expenseId, mime, name, size, data: new Uint8Array(0), ready: false, width: 0, height: 0, createdBy: await getMe() },
+    select: { id: true },
+  });
+  return { ok: true, id: r.id };
+}
+
+/** 조각 하나 이어 붙이기. offset = 지금까지 보낸 바이트 (같은 조각을 두 번 보내도 한 번만 붙음) */
+export async function appendReceiptChunk(form: FormData): Promise<Result> {
+  const id = text(form, "id", 40);
+  const offset = Number(form.get("offset"));
+  const chunk = form.get("chunk");
+  if (!(chunk instanceof File) || chunk.size === 0 || chunk.size > CHUNK_MAX || !Number.isInteger(offset)) return { ok: false, error: "파일 조각이 잘못됐어요" };
+  const bytes = new Uint8Array(await chunk.arrayBuffer());
+  const n = await prisma.$executeRaw`
+    UPDATE "Receipt" SET data = data || ${bytes}::bytea
+    WHERE id = ${id} AND ready = false AND octet_length(data) = ${offset}::int AND ${offset + bytes.length}::int <= size`;
+  if (n === 1) return { ok: true };
+  // 이미 붙은 조각을 다시 보낸 경우는 성공으로
+  const row = await prisma.$queryRaw<{ len: number }[]>`SELECT octet_length(data)::int AS len FROM "Receipt" WHERE id = ${id} AND ready = false`;
+  if (row[0] && row[0].len >= offset + bytes.length) return { ok: true };
+  return { ok: false, error: "파일을 올리다 끊겼어요. 다시 시도해 주세요" };
+}
+
+/** 다 받았으면 Blob 으로 옮기고(연결돼 있으면) 보이게 함 */
+export async function finishReceiptFile(id: string): Promise<Result> {
+  const r = await prisma.receipt.findUnique({ where: { id: String(id) }, select: { id: true, expenseId: true, name: true, size: true, mime: true, data: true, ready: true } });
+  if (!r || r.ready || !r.data) return { ok: false, error: "파일을 찾지 못했어요" };
+  if (r.data.length !== r.size) return { ok: false, error: "파일을 다 받지 못했어요. 다시 시도해 주세요" };
+  const url = await storeFileToBlob(`receipts/${r.expenseId}`, r.name ?? "file", r.data, r.mime);
+  const me = await getMe();
+  await prisma.$transaction([
+    prisma.receipt.update({ where: { id: r.id }, data: { ready: true, ...(url ? { url, data: null } : {}) } }),
+    prisma.expense.update({ where: { id: r.expenseId }, data: { updatedBy: me } }),
   ]);
   refresh();
   return { ok: true };

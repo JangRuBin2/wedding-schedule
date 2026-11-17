@@ -28,7 +28,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
       // 결제·지출: 낼 예정 먼저(가까운 날부터), 그다음 낸 것
       expenses: {
         orderBy: [{ paid: "asc" }, { date: "asc" }, { createdAt: "asc" }],
-        include: { event: { select: { title: true } }, _count: { select: { receipts: true } } },
+        include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
       },
     },
   });
