@@ -77,7 +77,8 @@ model Event {
   done        Boolean   @default(false)
   doneAt      DateTime?
   doneBy      String?
-  templateKey String?   @unique
+  /// 기본 20개 이벤트의 키 (s01…). 커플마다 하나씩이라 (coupleId, templateKey) 로 유일
+  templateKey String?
   tasks       Task[]
   dues        Due[]
   photos      Photo[]
@@ -85,6 +86,7 @@ model Event {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@unique([coupleId, templateKey])
   @@index([coupleId, order])
 }
 
@@ -129,19 +131,19 @@ model Due {
 
 /// 카카오 로그인 사용자. 커플 하나에 속함 (처음엔 없음 → 시작하기 또는 초대 링크로 합류)
 model User {
-  id          String    @id @default(cuid())
-  kakaoId     String    @unique
-  nickname    String?
+  id            String    @id @default(cuid())
+  kakaoId       String    @unique
+  nickname      String?
   /// 앱에서 쓰는 이름. '체크한 사람'으로 남음
-  name        String
-  couple      Couple?   @relation(fields: [coupleId], references: [id], onDelete: SetNull)
-  coupleId    String?
+  name          String
+  couple        Couple?   @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+  coupleId      String?
   /// 커플 안에서: OWNER(만든 사람, 멤버 내보내기·초대 링크 바꾸기) | MEMBER
-  role        String    @default("MEMBER")
+  role          String    @default("MEMBER")
   /// (옛 승인 방식) 지금은 늘 APPROVED. 커플 합류는 초대 링크로
-  status      String    @default("APPROVED")
-  createdAt   DateTime  @default(now())
-  lastLoginAt DateTime?
+  status        String    @default("APPROVED")
+  createdAt     DateTime  @default(now())
+  lastLoginAt   DateTime?
   /// 앱을 쓴 날 수 (하루에 한 번만 셈, 홈을 열 때) — 후원 안내를 열심히 쓰는 사람에게만 띄우려고
   activeDays    Int       @default(0)
   /// 마지막으로 센 날 'YYYY-MM-DD' (KST)
