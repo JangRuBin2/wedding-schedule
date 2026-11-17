@@ -54,6 +54,12 @@ npm test
    - Blob은 비공개라 파일 주소만으로는 열리지 않고, 화면은 `/api/photos/[id]` 로 앱 잠금 안에서만 보여요
 5. 운영 배포(`VERCEL_ENV=production`)를 빌드할 때만 (`scripts/vercel-build.sh`) `prisma db push` 로 테이블을 맞추고, `scripts/merge-dues.ts` 가 옛 결제를 결제·지출로 옮기고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요. 미리보기(브랜치) 빌드는 DB 를 건드리지 않아요
 
+## 테스트
+
+- `npm test` 단위 테스트, `npm run typecheck` 타입 검사
+- `npm run e2e` E2E (Playwright, 전용 테스트 DB `bomnal_e2e` 필요) — 자세한 건 `docs/e2e.md`
+- PR·main 푸시마다 GitHub Actions(`.github/workflows/test.yml`)가 둘 다 돌림
+
 ## 두 가지 모드
 
 - **여러 커플 (서비스)**: `KAKAO_REST_API_KEY` + `AUTH_SECRET` 이 있으면. 카카오로 가입 → 새로 시작하거나 초대 링크(`/join/코드`)로 합류, 커플당 4명까지. 마이에서 멤버·초대 링크·커플 나가기·계정 삭제

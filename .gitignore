@@ -10,3 +10,7 @@ next-env.d.ts
 android/build/
 android/*.keystore
 *.jks
+
+# E2E 결과
+e2e/.results/
+e2e/.report/

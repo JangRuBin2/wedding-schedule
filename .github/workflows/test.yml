@@ -1,0 +1,66 @@
+# PR·main 푸시마다: 타입 검사·단위 테스트 → (별도 단계) E2E. 빌드와 E2E 를 나눠서 어디서 깨졌는지 바로 보이게
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dev
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: bomnal_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dev" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      CI: "1"
+      E2E_DATABASE_URL: postgresql://dev:dev@localhost:5432/bomnal_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      # E2E 는 빌드한 결과(next start)로 돈다 (playwright.config.ts webServer)
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            e2e/.report/
+            e2e/.results/
+          retention-days: 14
