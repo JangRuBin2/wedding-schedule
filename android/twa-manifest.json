@@ -17,13 +17,13 @@
   "maskableIconUrl": "https://wedding-schedule-ten.vercel.app/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": { "path": "upload.keystore", "alias": "upload" },
-  "appVersionCode": 1,
-  "appVersion": "1.0.0",
+  "appVersionCode": 2,
+  "appVersion": "1.0.1",
   "shortcuts": [],
   "generatorApp": "bubblewrap-core",
   "webManifestUrl": "https://wedding-schedule-ten.vercel.app/manifest.webmanifest",
   "fallbackType": "customtabs",
-  "enableSiteSettingsShortcut": false,
+  "enableSiteSettingsShortcut": true,
   "orientation": "portrait",
   "minSdkVersion": 24
 }

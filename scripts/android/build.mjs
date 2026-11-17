@@ -46,6 +46,19 @@ mkdirSync(project, { recursive: true });
 await new TwaGenerator().createTwaProject(project, new TwaManifest(json), new ConsoleLog("twa"));
 writeFileSync(join(project, "local.properties"), `sdk.dir=${sdk}\n`);
 
+// R8(코드 줄이기)이 TWA 라이브러리의 클래스 이름을 바꾸면, 실행할 때 이름으로 찾는 구성 요소를 못 찾아
+// 앱이 바로 죽는다 ("Component class R.u does not exist" — 2026-11-17 에뮬레이터에서 확인).
+// 생성된 프로젝트에는 규칙 파일이 없어서 직접 붙인다
+const gradleFile = join(project, "app", "build.gradle");
+const gradle = readFileSync(gradleFile, "utf8");
+const patched = gradle.replace(/minifyEnabled true/, "minifyEnabled true\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'");
+if (patched === gradle) throw new Error("app/build.gradle 에서 minifyEnabled 를 못 찾았어요 (생성기 변경?)");
+writeFileSync(gradleFile, patched);
+writeFileSync(
+  join(project, "app", "proguard-rules.pro"),
+  ["# TWA 라이브러리는 이름으로 구성 요소를 켜고 찾으므로 이름을 바꾸지 않음", "-keep class com.google.androidbrowserhelper.** { *; }", "-keep class androidx.browser.** { *; }", ""].join("\n"),
+);
+
 console.log("▶ Gradle 빌드");
 const gradlew = join(project, process.platform === "win32" ? "gradlew.bat" : "gradlew");
 execFileSync("chmod", ["+x", gradlew]);
