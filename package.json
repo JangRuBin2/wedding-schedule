@@ -28,7 +28,7 @@
     "@tiptap/static-renderer": "^3.34.0",
     "@vercel/blob": "^2.8.2",
     "dotenv": "^18.0.9",
-    "next": "^16.4.3",
+    "next": "^16.4.6",
     "perfect-freehand": "^1.2.3",
     "pg": "^8.23.1",
     "react": "^19.1.0",
