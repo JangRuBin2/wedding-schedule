@@ -7,5 +7,9 @@
  */
 export const ANDROID = {
   packageId: "com.bomnal.app",
-  sha256: [] as string[],
+  sha256: [
+    // 업로드 키 (android/build 로 직접 만든 apk 를 설치해 볼 때)
+    "68:DE:32:C0:0A:C2:89:36:46:62:3E:46:E3:E5:9D:D2:19:83:E0:F3:A7:DF:A7:4A:7B:4D:98:CC:0A:7C:67:97",
+    // TODO: 첫 업로드 뒤 Play Console → 테스트 및 출시 → 앱 무결성 → 앱 서명 키 인증서의 SHA-256 을 여기 추가
+  ] as string[],
 };

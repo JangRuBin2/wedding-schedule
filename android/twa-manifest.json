@@ -25,5 +25,5 @@
   "fallbackType": "customtabs",
   "enableSiteSettingsShortcut": false,
   "orientation": "portrait",
-  "minSdkVersion": 23
+  "minSdkVersion": 24
 }
