@@ -52,7 +52,7 @@ npm test
 4. 사진 저장소: Storage → Create → **Blob**, 접근을 **Private**으로 만들고 이 프로젝트에 연결 (`BLOB_READ_WRITE_TOKEN` 이 자동으로 들어가요)
    - 연결하기 전에는 사진을 DB에 저장해요. 연결한 뒤 배포하면 DB에 있던 사진을 Blob으로 옮기고, 그때 못 옮긴 사진은 처음 볼 때 옮겨요
    - Blob은 비공개라 파일 주소만으로는 열리지 않고, 화면은 `/api/photos/[id]` 로 앱 잠금 안에서만 보여요
-5. 운영 배포(`VERCEL_ENV=production`)를 빌드할 때만 `prisma db push` 로 테이블을 맞추고, `scripts/merge-dues.ts` 가 옛 결제를 결제·지출로 옮기고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요. 미리보기(브랜치) 빌드는 DB 를 건드리지 않아요
+5. 운영 배포(`VERCEL_ENV=production`)를 빌드할 때만 (`scripts/vercel-build.sh`) `prisma db push` 로 테이블을 맞추고, `scripts/merge-dues.ts` 가 옛 결제를 결제·지출로 옮기고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요. 미리보기(브랜치) 빌드는 DB 를 건드리지 않아요
 
 ## 두 가지 모드
 

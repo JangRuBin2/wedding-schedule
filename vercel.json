@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma generate && if [ \"$VERCEL_ENV\" = production ]; then prisma db execute --file prisma/pre-push.sql && prisma db push && tsx scripts/migrate-couples.ts && tsx scripts/merge-dues.ts && tsx scripts/move-photos-to-blob.ts; else echo 'preview build: DB 는 건드리지 않음'; fi && next build",
+  "buildCommand": "bash scripts/vercel-build.sh",
   "regions": [
     "hnd1"
   ]
