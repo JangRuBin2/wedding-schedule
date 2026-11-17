@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authSecretMissing, MISSING_SECRET, sessionCookie, signSession } from "@/lib/session";
+import { safeBack } from "@/lib/back";
 
 export const dynamic = "force-dynamic";
 
-/** 카카오가 돌려준 code로 토큰 → 사용자 정보. 처음 로그인한 사람은 OWNER로 바로 승인, 그다음은 승인 대기 */
+/**
+ * 카카오가 돌려준 code로 토큰 → 사용자 정보 → 계정 (처음이면 만듦). 승인 단계 없음:
+ * 커플이 있으면 홈(또는 로그인 전에 가려던 곳), 없으면 시작하기(새로 시작 / 초대 링크로 합류)
+ */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const fail = (reason: string) => NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, url.origin));
@@ -35,22 +39,19 @@ export async function GET(req: Request) {
   const kakaoId = String(me.id);
   const nickname = me.kakao_account?.profile?.nickname ?? me.properties?.nickname ?? null;
 
-  const isFirst = (await prisma.user.count()) === 0;
   const user = await prisma.user.upsert({
     where: { kakaoId },
-    create: {
-      kakaoId,
-      nickname,
-      name: nickname || `카카오 ${kakaoId.slice(-4)}`,
-      role: isFirst ? "OWNER" : "MEMBER",
-      status: isFirst ? "APPROVED" : "PENDING",
-      lastLoginAt: new Date(),
-    },
+    create: { kakaoId, nickname, name: nickname || `카카오 ${kakaoId.slice(-4)}`, lastLoginAt: new Date() },
     update: { nickname, lastLoginAt: new Date() },
   });
+  if (user.status === "REJECTED") return fail("이용이 제한된 계정이에요");
 
-  const res = NextResponse.redirect(new URL(user.status === "APPROVED" ? "/" : "/login/pending", url.origin));
+  const saved = req.headers.get("cookie")?.match(/(?:^|;\s*)bomnal_next=([^;]+)/)?.[1];
+  const next = saved ? safeBack(decodeURIComponent(saved), "") : "";
+  const to = next || (user.coupleId ? "/" : "/start");
+  const res = NextResponse.redirect(new URL(to, url.origin));
   res.cookies.set(sessionCookie(await signSession({ uid: user.id, name: user.name, role: user.role, status: user.status })));
   res.cookies.delete("bomnal_oauth_state");
+  res.cookies.delete("bomnal_next");
   return res;
 }

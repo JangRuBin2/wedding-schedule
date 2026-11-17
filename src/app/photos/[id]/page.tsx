@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { shortDate } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 /** 사진 크게 보기 (보기 화면). 삭제는 따로 작성 화면에서 */
 export default async function PhotoPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const p = await prisma.photo.findUnique({
+  const p = await db.photo.findUnique({
     where: { id },
     select: { id: true, width: true, height: true, createdAt: true, createdBy: true, event: { select: { id: true, title: true } } },
   });

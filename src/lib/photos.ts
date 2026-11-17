@@ -1,5 +1,6 @@
 import { del, get, put } from "@vercel/blob";
 import { prisma } from "./db";
+import type { ScopedDb } from "./tenant";
 
 /**
  * 사진 파일 저장소. Vercel Blob(비공개)을 연결했으면 거기에, 아니면 DB(Bytes)에.
@@ -40,9 +41,9 @@ export async function storeFileToBlob(dir: string, name: string, bytes: Uint8Arr
   return upload(`${dir}/${name}`, Buffer.from(bytes), contentType);
 }
 
-/** 사진 내용 (Response 본문으로 바로 쓸 수 있게). 없으면 null */
-export async function readPhoto(id: string, size: "full" | "thumb") {
-  const p = await prisma.photo.findUnique({ where: { id }, select: { mime: true, url: true, thumbUrl: true } });
+/** 사진 내용 (Response 본문으로 바로 쓸 수 있게). 없거나 우리 커플 것이 아니면 null */
+export async function readPhoto(db: ScopedDb, id: string, size: "full" | "thumb") {
+  const p = await db.photo.findUnique({ where: { id }, select: { mime: true, url: true, thumbUrl: true } });
   if (!p) return null;
   const url = size === "thumb" ? p.thumbUrl : p.url;
   if (url) {
@@ -97,6 +98,6 @@ export async function deleteBlobs(rows: { url: string | null; thumbUrl: string |
   if (urls.length && blobEnabled()) await del(urls).catch((e) => console.error("Blob 지우기 실패", e));
 }
 
-/** 이벤트(들)를 지우기 전에 그 사진의 Blob 주소를 모아 둠 (행은 이벤트와 같이 지워짐) */
-export const blobsOfEvents = (eventIds: string[]) =>
-  prisma.photo.findMany({ where: { eventId: { in: eventIds }, url: { not: null } }, select: { url: true, thumbUrl: true } });
+/** 이벤트(들)를 지우기 전에 그 사진의 Blob 주소를 모아 둠 (행은 이벤트와 같이 지워짐). 우리 커플 것만 */
+export const blobsOfEvents = (db: ScopedDb, eventIds: string[]) =>
+  db.photo.findMany({ where: { eventId: { in: eventIds }, url: { not: null } }, select: { url: true, thumbUrl: true } });

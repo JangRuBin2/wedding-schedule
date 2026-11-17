@@ -232,3 +232,11 @@ test("dateTimeLabel: KST 기준 날짜 + 오전/오후 시각", () => {
   assert.equal(dateTimeLabel(new Date("2026-11-14T15:05:00Z"), now), "11월 15일 오전 12:05");
   assert.equal(dateTimeLabel(new Date("2025-03-02T09:00:00+09:00"), now), "2025년 3월 2일 오전 9:00");
 });
+
+test("뒤로 가기 주소: 우리 사이트 안 경로만 (탭·역슬래시로 바깥 사이트로 새는 것 막음)", async () => {
+  const { safeBack } = await import("./back");
+  assert.equal(safeBack("/events/1?x=1", "/"), "/events/1?x=1");
+  assert.equal(safeBack("/expenses?cat=%EC%8A%A4%EB%93%9C%EB%A9%94", "/"), "/expenses?cat=%EC%8A%A4%EB%93%9C%EB%A9%94");
+  for (const bad of ["//evil.com", "/\\evil.com", "/\t/evil.com", "/\n/evil.com", "https://evil.com", "evil.com", "", null, 3])
+    assert.equal(safeBack(bad, "/x"), "/x", String(bad));
+});

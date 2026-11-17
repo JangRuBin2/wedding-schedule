@@ -3,10 +3,14 @@ import { kakaoEnabled, readSession, SESSION_COOKIE } from "@/lib/session";
 
 /**
  * 앱 잠금.
- * - KAKAO_REST_API_KEY 가 있으면 카카오 로그인 (승인된 사람만)
- * - 없으면 Basic Auth (아이디 아무거나, 비밀번호 = APP_PASSWORD). 비워 두면 잠그지 않음
+ * - KAKAO_REST_API_KEY 가 있으면 카카오 로그인 (여러 커플이 쓰는 서비스 모드)
+ * - 없으면 커플 하나만 쓰는 모드: Basic Auth (아이디 아무거나, 비밀번호 = APP_PASSWORD). 비워 두면 잠그지 않음
  */
+/** 로그인 없이 열리는 주소: 개인정보처리방침·이용약관 (스토어 심사·가입 전 안내용) */
+const PUBLIC = ["/privacy", "/terms"];
+
 export async function proxy(req: NextRequest) {
+  if (PUBLIC.includes(req.nextUrl.pathname)) return NextResponse.next();
   if (kakaoEnabled()) return kakao(req);
 
   const password = process.env.APP_PASSWORD;
@@ -39,7 +43,7 @@ async function kakao(req: NextRequest) {
     if (path !== "/") to.searchParams.set("next", path);
     return NextResponse.redirect(to);
   }
-  if (s.status !== "APPROVED") return path === "/login/pending" ? NextResponse.next() : NextResponse.redirect(new URL("/login/pending", req.url));
+  // 커플 소속·탈퇴는 화면에서 DB 로 다시 확인 (src/lib/tenant.ts). 여기선 로그인만
   return NextResponse.next();
 }
 

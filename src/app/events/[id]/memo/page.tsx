@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { SubmitButton } from "@/components/SubmitButton";
 import { WriteHeader } from "@/components/WriteHeader";
 import { saveMemo } from "../../../actions";
@@ -7,8 +7,9 @@ import { saveMemo } from "../../../actions";
 export const dynamic = "force-dynamic";
 
 export default async function EventMemoPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const e = await prisma.event.findUnique({ where: { id }, select: { id: true, title: true, memo: true } });
+  const e = await db.event.findUnique({ where: { id }, select: { id: true, title: true, memo: true } });
   if (!e) notFound();
   return (
     <main className="space-y-6">

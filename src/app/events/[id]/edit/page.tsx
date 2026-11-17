@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { ymd } from "@/lib/dates";
 import { EventFields } from "@/components/EventFields";
@@ -10,9 +10,10 @@ import { deleteEvent, updateEvent } from "../../../actions";
 export const dynamic = "force-dynamic";
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
   const [e, cats] = await Promise.all([
-    prisma.event.findUnique({ where: { id }, include: { _count: { select: { tasks: true, expenses: true, photos: true } } } }),
+    db.event.findUnique({ where: { id }, include: { _count: { select: { tasks: true, expenses: true, photos: true } } } }),
     getCategories(),
   ]);
   if (!e) notFound();

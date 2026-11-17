@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { dateTimeLabel } from "@/lib/dates";
 import { notePreview, noteTitle } from "@/lib/note-doc";
 
@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 /** 메모 목록 (보기 화면). 최근에 고친 순 */
 export default async function NotesPage() {
-  const notes = await prisma.note.findMany({
+  const db = await scoped();
+  const notes = await db.note.findMany({
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, text: true, drawings: true, updatedAt: true, updatedBy: true },
   });

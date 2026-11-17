@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { safeBack } from "@/lib/back";
 import { ymd } from "@/lib/dates";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -9,8 +9,9 @@ import { deleteTask, updateTask } from "../../../actions";
 export const dynamic = "force-dynamic";
 
 export default async function EditTaskPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ back?: string | string[] }> }) {
+  const db = await scoped();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
-  const t = await prisma.task.findUnique({ where: { id }, include: { event: { select: { id: true, title: true } } } });
+  const t = await db.task.findUnique({ where: { id }, include: { event: { select: { id: true, title: true } } } });
   if (!t) notFound();
   const back = safeBack(sp.back, `/events/${t.event.id}`);
   return (

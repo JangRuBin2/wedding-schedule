@@ -1,32 +1,38 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { currentUser, getCouple, scoped } from "@/lib/tenant";
+import { InviteLink } from "@/components/InviteLink";
 import { getCategories } from "@/lib/categories";
 import { getTheme, THEMES } from "@/lib/theme";
 import { getWedding } from "@/lib/data";
 import { dateLabel } from "@/lib/dates";
-import { currentSession, getMe } from "@/lib/me";
+import { getMe } from "@/lib/me";
 import { kakaoEnabled } from "@/lib/session";
 import { EVENT_TEMPLATES } from "@/lib/templates";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Tip } from "@/components/Tip";
-import { addTemplateEvents, setMe, setUserStatus } from "../actions";
+import { addTemplateEvents, removeMember, resetInvite, setMe } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-const STATUS = { APPROVED: "승인됨", PENDING: "승인 대기", REJECTED: "거절됨" } as const;
-
 export default async function SettingsPage() {
+  const db = await scoped();
   const kakao = kakaoEnabled();
-  const [wedding, me, session, templateCount, cats, theme] = await Promise.all([
+  const [wedding, me, user, couple, templateCount, cats, theme] = await Promise.all([
     getWedding(),
     getMe(),
-    currentSession(),
-    prisma.event.count({ where: { templateKey: { not: null } } }),
+    currentUser(),
+    getCouple(),
+    db.event.count({ where: { templateKey: { not: null } } }),
     getCategories(),
     getTheme(),
   ]);
-  const users = kakao ? await prisma.user.findMany({ orderBy: { createdAt: "asc" } }) : [];
-  const isOwner = users.some((u) => u.id === session?.uid && u.role === "OWNER");
+  // 우리 커플 멤버만
+  const users = kakao && couple ? await prisma.user.findMany({ where: { coupleId: couple.id }, orderBy: { createdAt: "asc" } }) : [];
+  const isOwner = user?.role === "OWNER";
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
   const missing = EVENT_TEMPLATES.length - templateCount;
   const names = wedding?.names ?? [];
 
@@ -85,11 +91,11 @@ export default async function SettingsPage() {
         </section>
       )}
 
-      {kakao && (
+      {kakao && couple && (
         <section>
           <h2 className="section-title">
-            로그인
-            <small>{session ? `${session.name}님 로그인 중` : ""}</small>
+            우리 커플
+            <small>{user ? `${user.name}님으로 로그인` : ""}</small>
           </h2>
           <ul className="card ledger !py-1">
             {users.map((u) => (
@@ -97,36 +103,43 @@ export default async function SettingsPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold">
                     {u.name}
-                    {u.role === "OWNER" && <span className="ml-1.5 text-[11px] font-bold text-save">관리자</span>}
+                    {u.role === "OWNER" && <span className="ml-1.5 text-[11px] font-bold text-save">만든 사람</span>}
+                    {u.id === user?.id && <span className="ml-1.5 text-[11px] font-medium text-sub">나</span>}
                   </span>
-                  <span className="block text-[12px] text-sub">
-                    {STATUS[u.status as keyof typeof STATUS] ?? u.status}
-                    {u.nickname && u.nickname !== u.name && ` · 카카오 ${u.nickname}`}
-                  </span>
+                  {u.nickname && u.nickname !== u.name && <span className="block text-[12px] text-sub">카카오 {u.nickname}</span>}
                 </span>
-                {(u.id === session?.uid || isOwner) && (
+                {(u.id === user?.id || isOwner) && (
                   <Link href={`/settings/account?id=${u.id}`} className="text-[13px] font-semibold text-save">
                     이름 수정
                   </Link>
                 )}
-                {isOwner && u.id !== session?.uid && u.status !== "APPROVED" && (
-                  <form action={setUserStatus.bind(null, u.id, "APPROVED")}>
-                    <SubmitButton base="btn-ghost" pendingText="…" className="!bg-save-soft !px-2.5 !py-1.5 text-[12px] !text-save">승인</SubmitButton>
-                  </form>
-                )}
-                {isOwner && u.id !== session?.uid && u.status !== "REJECTED" && (
-                  <form action={setUserStatus.bind(null, u.id, "REJECTED")}>
+                {isOwner && u.id !== user?.id && (
+                  <form action={removeMember.bind(null, u.id)}>
                     <SubmitButton base="btn-ghost" pendingText="…" className="!px-2.5 !py-1.5 text-[12px] !text-spend">
-                      {u.status === "APPROVED" ? "차단" : "거절"}
+                      내보내기
                     </SubmitButton>
                   </form>
                 )}
               </li>
             ))}
           </ul>
-          <p className="mt-2 px-1 text-[12px] text-sub">
-            상대가 카카오로 로그인하면 여기에 승인 대기로 보여요 ·{" "}
-            <a href="/api/auth/logout" className="font-semibold text-sub underline">로그아웃</a>
+          <div className="card mt-3 space-y-2 !py-3.5">
+            <p className="flex items-center gap-1 text-[14px] font-semibold">
+              초대 링크
+              <Tip>이 링크를 받은 사람이 카카오로 로그인하면 우리 일정에 같이 들어와요. 4명까지</Tip>
+            </p>
+            <InviteLink url={`${origin}/join/${couple.inviteCode}`} />
+            {isOwner && (
+              <form action={resetInvite}>
+                <SubmitButton base="" pendingText="바꾸는 중…" className="text-[12px] font-semibold text-sub">
+                  링크 새로 만들기 (예전 링크는 막혀요)
+                </SubmitButton>
+              </form>
+            )}
+          </div>
+          <p className="mt-2 flex gap-3 px-1 text-[12px] text-sub">
+            <a href="/api/auth/logout" className="font-semibold underline">로그아웃</a>
+            <Link href="/settings/leave" className="font-semibold underline">커플 나가기·계정 삭제</Link>
           </p>
         </section>
       )}
@@ -143,6 +156,10 @@ export default async function SettingsPage() {
 
       <section>
         <h2 className="section-title">앱</h2>
+        <ul className="card ledger mb-3 !py-1">
+          <Row href="/privacy" label="개인정보처리방침">{""}</Row>
+          <Row href="/terms" label="이용약관">{""}</Row>
+        </ul>
         <div className="card flex items-center gap-1.5 !py-3.5 text-[15px] font-semibold">
           홈 화면에 추가하는 방법
           <Tip>

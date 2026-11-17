@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { authSecretMissing, kakaoEnabled, MISSING_SECRET } from "@/lib/session";
+import { safeBack } from "@/lib/back";
 
 export const dynamic = "force-dynamic";
 
-/** 카카오 로그인 화면으로 보냄. state 쿠키로 다른 사이트에서 콜백을 위조하지 못하게 함 */
+/** 카카오 로그인 화면으로 보냄. state 쿠키로 다른 사이트에서 콜백을 위조하지 못하게 함. ?next= 는 로그인 뒤 갈 곳(초대 링크 등) */
 export async function GET(req: Request) {
   if (!kakaoEnabled()) return NextResponse.redirect(new URL("/", req.url));
   if (authSecretMissing()) return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(MISSING_SECRET)}`, req.url));
@@ -16,5 +17,7 @@ export async function GET(req: Request) {
   url.searchParams.set("state", state);
   const res = NextResponse.redirect(url);
   res.cookies.set({ name: "bomnal_oauth_state", value: state, httpOnly: true, sameSite: "lax", path: "/", maxAge: 600, secure: origin.startsWith("https") });
+  const next = safeBack(new URL(req.url).searchParams.get("next"), "");
+  if (next) res.cookies.set({ name: "bomnal_next", value: encodeURIComponent(next), httpOnly: true, sameSite: "lax", path: "/", maxAge: 600, secure: origin.startsWith("https") });
   return res;
 }

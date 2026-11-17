@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { kakaoEnabled, readSession, SESSION_COOKIE } from "./session";
+import { currentUser } from "./tenant";
 
 /**
  * 누가 체크했는지 남길 이름.
@@ -13,7 +14,8 @@ export async function currentSession() {
 
 export async function getMe(): Promise<string | null> {
   const jar = await cookies();
-  if (kakaoEnabled()) return (await readSession(jar.get(SESSION_COOKIE)?.value))?.name ?? null;
+  // 카카오: DB 의 지금 이름 (이름을 바꾸면 바로 반영)
+  if (kakaoEnabled()) return (await currentUser())?.name ?? null;
   const v = jar.get(ME_COOKIE)?.value;
   return v ? decodeURIComponent(v) : null;
 }

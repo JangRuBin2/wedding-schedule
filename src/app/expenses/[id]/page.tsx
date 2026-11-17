@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { dateTimeLabel, daysUntil, dueLabel, fullDate } from "@/lib/dates";
 import { setPaid } from "@/app/actions";
@@ -14,9 +14,10 @@ export const dynamic = "force-dynamic";
 
 /** 지출 상세 (보기 화면). 증빙 이미지, 등록·수정한 때와 사람. 고치기는 작성 화면에서 */
 export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
   const [x, cats] = await Promise.all([
-    prisma.expense.findUnique({
+    db.expense.findUnique({
       where: { id },
       include: {
         event: { select: { id: true, title: true } },

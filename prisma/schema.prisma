@@ -9,7 +9,27 @@ datasource db {
   provider = "postgresql"
 }
 
-/// 결혼식 정보 (레코드 하나). 이 행이 있으면 '시작하기'를 마친 것
+/// 커플 (서비스를 같이 쓰는 한 팀). 모든 데이터가 여기에 묶임 (Category·Event·Expense·Note 의 coupleId, 나머지는 부모를 따라감).
+/// 결혼식 정보도 여기에. 이 행이 있으면 '시작하기'를 마친 것
+model Couple {
+  id         String     @id @default(cuid())
+  /// 결혼식 날짜. 추천 일정 계산 기준
+  date       DateTime?
+  place      String?
+  /// 우리 둘 이름 (비밀번호 잠금 모드에서 '이 기기는 누구' 목록)
+  names      String[]   @default([])
+  /// 배우자 초대 링크 /join/[inviteCode]. 다시 만들면 예전 링크는 막힘
+  inviteCode String     @unique
+  users      User[]
+  categories Category[]
+  events     Event[]
+  expenses   Expense[]
+  notes      Note[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+/// (옛 결혼식 정보, 한 줄) 지금은 쓰지 않음. scripts/migrate-couples.ts 가 첫 커플로 옮김 — 다음 배포에서 지움
 model Wedding {
   id        Int       @id @default(1)
   /// 결혼식 날짜. 추천 일정 계산 기준
@@ -23,17 +43,25 @@ model Wedding {
 /// 이벤트 카테고리. 처음엔 기본 6개, 설정에서 추가·이름·색 변경. '기타'는 지울 수 없음
 model Category {
   id        String   @id @default(cuid())
-  name      String   @unique
+  /// (옮기는 동안만 비어 있을 수 있음)
+  couple    Couple?  @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  coupleId  String?
+  name      String
   color     String
   /// 이 카테고리에 쓸 예산(원). 0 = 안 정함
   budget    Int      @default(0)
   order     Int      @default(0)
   createdAt DateTime @default(now())
+
+  @@unique([coupleId, name])
+  @@index([coupleId])
 }
 
 /// 준비 이벤트 (20개 기본 + 직접 추가)
 model Event {
   id          String    @id @default(cuid())
+  couple      Couple?   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  coupleId    String?
   order       Int
   title       String
   /// Category.name (이름을 바꾸면 같이 바꿈)
@@ -56,6 +84,8 @@ model Event {
   expenses    Expense[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([coupleId, order])
 }
 
 /// 이벤트 안 할 일
@@ -97,17 +127,19 @@ model Due {
   @@index([eventId])
 }
 
-/// 카카오 로그인 사용자
+/// 카카오 로그인 사용자. 커플 하나에 속함 (처음엔 없음 → 시작하기 또는 초대 링크로 합류)
 model User {
   id          String    @id @default(cuid())
   kakaoId     String    @unique
   nickname    String?
   /// 앱에서 쓰는 이름. '체크한 사람'으로 남음
   name        String
-  /// OWNER | MEMBER
+  couple      Couple?   @relation(fields: [coupleId], references: [id], onDelete: SetNull)
+  coupleId    String?
+  /// 커플 안에서: OWNER(만든 사람, 멤버 내보내기·초대 링크 바꾸기) | MEMBER
   role        String    @default("MEMBER")
-  /// APPROVED | PENDING | REJECTED
-  status      String    @default("PENDING")
+  /// (옛 승인 방식) 지금은 늘 APPROVED. 커플 합류는 초대 링크로
+  status      String    @default("APPROVED")
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 }
@@ -135,6 +167,8 @@ model Photo {
 /// 이벤트에 묶지 않아도 됨 (이벤트를 지워도 기록은 남고 연결만 끊김)
 model Expense {
   id        String    @id @default(cuid())
+  couple    Couple?   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  coupleId  String?
   title     String
   /// 원. 금액을 아직 모르면 비움 (낼 예정일 때. 화면에서 낸 돈은 금액을 받음)
   amount    Int?
@@ -156,9 +190,8 @@ model Expense {
   updatedAt DateTime  @updatedAt
   updatedBy String?
 
-  @@index([date])
+  @@index([coupleId, date])
   @@index([eventId])
-  @@index([paid])
 }
 
 /// 지출 첨부: 증빙 이미지(영수증·계약서 사진, 줄여서 저장 + 미리보기) 또는 파일(PDF·한글·엑셀 등 5MB 까지, 그대로 저장).
@@ -190,6 +223,8 @@ model Receipt {
 /// 저장할 때 서버에서 스키마로 검사하고(src/lib/note-doc.ts) 목록용 글(text)과 그림 수(drawings)를 같이 저장
 model Note {
   id        String   @id @default(cuid())
+  couple    Couple?  @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  coupleId  String?
   /// 비어 있으면 목록에서 본문 첫 줄을 제목처럼 보여 줌
   title     String   @default("")
   content   Json
@@ -201,5 +236,5 @@ model Note {
   updatedAt DateTime @updatedAt
   updatedBy String?
 
-  @@index([updatedAt])
+  @@index([coupleId, updatedAt])
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { dateLabel, daysUntil, dueLabel, fullDate, shortDate, timeLabel } from "@/lib/dates";
 import { colorOf, KINDS, soft } from "@/lib/meta";
 import { won } from "@/lib/money";
@@ -17,9 +17,10 @@ export const dynamic = "force-dynamic";
 
 /** 이벤트 보기 화면. 입력 칸은 없고, 추가·수정은 작성 화면으로 넘어감 (체크·'냈어요'처럼 한 번 누르면 끝나는 것만 여기서) */
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
   const now = new Date();
-  const e = await prisma.event.findUnique({
+  const e = await db.event.findUnique({
     where: { id },
     include: {
       tasks: { orderBy: [{ done: "asc" }, { date: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },

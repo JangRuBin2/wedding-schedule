@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { ymd } from "@/lib/dates";
 import { CategoryPicker } from "@/components/CategoryPicker";
@@ -18,18 +18,19 @@ export default async function EditExpensePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ pay?: string | string[] }>;
 }) {
+  const db = await scoped();
   const { id } = await params;
   // '결제 완료'를 눌렀는데 금액이 없어서 온 경우: 결제 완료를 골라 둔 채로 열어서 금액만 넣으면 되게
   const pay = (await searchParams).pay === "1";
   const [x, cats, events] = await Promise.all([
-    prisma.expense.findUnique({
+    db.expense.findUnique({
       where: { id },
       include: {
         receipts: { where: { ready: true }, orderBy: { createdAt: "asc" }, select: { id: true, width: true, height: true, mime: true, name: true, size: true } },
       },
     }),
     getCategories(),
-    prisma.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
+    db.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
   ]);
   if (!x) notFound();
   return (

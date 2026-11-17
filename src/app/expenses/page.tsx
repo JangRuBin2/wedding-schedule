@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { ymd } from "@/lib/dates";
 import { colorOf } from "@/lib/meta";
@@ -18,10 +18,11 @@ const sumOf = (xs: { amount: number | null }[]) => xs.reduce((n, x) => n + (x.am
  * 예산 탭의 카테고리를 누르면 ?cat= 으로 그 카테고리만
  */
 export default async function ExpensesPage({ searchParams }: { searchParams: SP }) {
+  const db = await scoped();
   const sp = await searchParams;
   const now = new Date();
   const [all, cats] = await Promise.all([
-    prisma.expense.findMany({
+    db.expense.findMany({
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
     }),

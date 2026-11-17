@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { budgetSummary, stackPct } from "@/lib/budget";
 import { colorOf, soft } from "@/lib/meta";
@@ -15,10 +15,11 @@ const listOf = (cat: string) => `/expenses?cat=${encodeURIComponent(cat)}`;
 
 /** 예산 (보기). 카테고리별 예산은 작성 화면에서, 돈은 '결제·지출' 한 가지 기록에서 쌓임 (냈어요 = 지출, 아직 = 결제 예정) */
 export default async function BudgetPage() {
+  const db = await scoped();
   const now = new Date();
   const [cats, all] = await Promise.all([
     getCategories(),
-    prisma.expense.findMany({
+    db.expense.findMany({
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
       include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
     }),

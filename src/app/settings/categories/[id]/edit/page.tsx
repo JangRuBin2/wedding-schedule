@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { FALLBACK_CATEGORY } from "@/lib/meta";
 import { CategoryFields } from "@/components/CategoryFields";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -9,11 +9,12 @@ import { deleteCategory, updateCategory } from "../../../../actions";
 export const dynamic = "force-dynamic";
 
 export default async function EditCategoryPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const c = await prisma.category.findUnique({ where: { id } });
+  const c = await db.category.findUnique({ where: { id } });
   if (!c) notFound();
   const isFallback = c.name === FALLBACK_CATEGORY;
-  const used = await prisma.event.count({ where: { category: c.name } });
+  const used = await db.event.count({ where: { category: c.name } });
   return (
     <main className="space-y-6">
       <WriteHeader back="/settings/categories" backLabel="취소" title="카테고리 수정" sub={used ? `이벤트 ${used}개가 이 카테고리에 속해 있어요. 이름을 바꾸면 함께 바뀌어요` : undefined} />

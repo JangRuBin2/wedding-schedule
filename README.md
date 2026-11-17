@@ -54,6 +54,12 @@ npm test
    - Blob은 비공개라 파일 주소만으로는 열리지 않고, 화면은 `/api/photos/[id]` 로 앱 잠금 안에서만 보여요
 5. 운영 배포(`VERCEL_ENV=production`)를 빌드할 때만 `prisma db push` 로 테이블을 맞추고, `scripts/merge-dues.ts` 가 옛 결제를 결제·지출로 옮기고, `scripts/move-photos-to-blob.ts` 가 남은 사진을 옮겨요. 미리보기(브랜치) 빌드는 DB 를 건드리지 않아요
 
+## 두 가지 모드
+
+- **여러 커플 (서비스)**: `KAKAO_REST_API_KEY` + `AUTH_SECRET` 이 있으면. 카카오로 가입 → 새로 시작하거나 초대 링크(`/join/코드`)로 합류, 커플당 4명까지. 마이에서 멤버·초대 링크·커플 나가기·계정 삭제
+- **한 커플 (예전 방식)**: 카카오 키가 없으면. `APP_PASSWORD` 로 잠그고 데이터는 커플 하나(`legacy`)
+- 로그인 없이 열리는 곳: `/privacy`(개인정보처리방침), `/terms`(이용약관). 운영자 이름·연락처는 `src/lib/operator.ts`
+
 ## 폴더
 
 ```
@@ -66,8 +72,9 @@ src/lib/budget.ts     예산 합계·막대
 src/lib/allocate.ts   예산 설정(비율·슬라이더·최소 금액)
 src/lib/theme.ts      화면 테마 쿠키
 src/lib/money.ts      금액 입력·표시
+src/lib/tenant.ts     여러 커플 모드: 모든 질의에 '우리 커플 것만' 조건을 붙이는 DB (scoped())
 src/lib/photos.ts     사진 저장소 (Vercel Blob 비공개, 연결 전엔 DB)
 src/lib/note-doc.ts   메모 본문 스키마(Tiptap)·손그림 획·저장 검사
 src/components/notes/ 메모 에디터, 그리기 모드, 보기 화면 렌더러
-prisma/schema.prisma  Wedding · Category · Event · Task · Photo · Expense(결제·지출) · Receipt · Note · User (Due 는 옮긴 뒤 비는 옛 테이블)
+prisma/schema.prisma  Couple · Category · Event · Task · Photo · Expense(결제·지출) · Receipt · Note · User (Wedding·Due 는 옮긴 뒤 비는 옛 테이블)
 ```

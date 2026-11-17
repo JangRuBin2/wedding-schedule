@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { suggestionsFor } from "@/lib/templates";
 import { SubmitButton } from "@/components/SubmitButton";
 import { WriteHeader } from "@/components/WriteHeader";
@@ -9,8 +9,9 @@ import { addTask } from "../../../../actions";
 export const dynamic = "force-dynamic";
 
 export default async function NewTaskPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const e = await prisma.event.findUnique({ where: { id }, select: { id: true, title: true, templateKey: true, tasks: { select: { content: true } } } });
+  const e = await db.event.findUnique({ where: { id }, select: { id: true, title: true, templateKey: true, tasks: { select: { content: true } } } });
   if (!e) notFound();
   const suggestions = suggestionsFor(e.templateKey, e.tasks);
   return (

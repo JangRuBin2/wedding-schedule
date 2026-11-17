@@ -4,6 +4,7 @@ import { Logo } from "@/components/Logo";
 import { Tip } from "@/components/Tip";
 import { SubmitButton } from "@/components/SubmitButton";
 import { start } from "../actions";
+import { kakaoEnabled } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,18 @@ export default async function StartPage() {
           </button>
         </div>
       </form>
+      {kakaoEnabled() && (
+        <form action="/join" className="card space-y-3">
+          <p className="flex items-center gap-1 text-[14px] font-semibold">
+            상대가 먼저 시작했나요?
+            <Tip>상대의 마이 → 초대 링크를 받아서 누르면 바로 들어가요. 링크 끝의 8자리 코드를 여기에 적어도 돼요</Tip>
+          </p>
+          <div className="flex gap-2">
+            <input name="code" placeholder="초대 코드 8자리" maxLength={12} autoCapitalize="characters" autoComplete="off" required className="input num uppercase" />
+            <button className="btn-ghost shrink-0 !py-[11px]">들어가기</button>
+          </div>
+        </form>
+      )}
     </main>
   );
 }

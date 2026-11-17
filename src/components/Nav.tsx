@@ -47,7 +47,7 @@ const TABS = [
 /** 아래 탭 (데스크톱에서는 위에 붙음) */
 export function Nav() {
   const path = usePathname();
-  if (path.startsWith("/login") || path.startsWith("/start")) return null;
+  if (["/login", "/start", "/join", "/privacy", "/terms"].some((p) => path.startsWith(p))) return null;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:sticky md:top-0 md:bottom-auto md:border-t-0 md:border-b md:pb-0">
       <ul className="mx-auto grid max-w-xl grid-cols-5">

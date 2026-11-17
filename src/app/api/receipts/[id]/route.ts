@@ -1,4 +1,5 @@
 import { inlineOk } from "@/lib/attach";
+import { scopedOrNull } from "@/lib/tenant";
 import { readReceipt } from "@/lib/receipts";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const f = await readReceipt(id, new URL(req.url).searchParams.get("size") === "thumb" ? "thumb" : "full");
+  // 우리 커플 것만 (로그인·커플이 없으면 404)
+  const db = await scopedOrNull();
+  const f = db && await readReceipt(db, id, new URL(req.url).searchParams.get("size") === "thumb" ? "thumb" : "full");
   if (!f) return new Response("첨부가 없어요", { status: 404 });
   const headers: Record<string, string> = {
     "Content-Type": f.mime,

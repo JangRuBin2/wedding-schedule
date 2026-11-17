@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { fromYmd, ymd } from "@/lib/dates";
 import { safeBack } from "@/lib/back";
@@ -16,10 +16,11 @@ type SP = Promise<{ eventId?: string | string[]; back?: string | string[]; cat?:
  * ?planned=1 이면 '결제 예정'으로 시작. 날짜는 오늘(또는 ?date=)
  */
 export default async function NewExpensePage({ searchParams }: { searchParams: SP }) {
+  const db = await scoped();
   const sp = await searchParams;
   const [cats, events] = await Promise.all([
     getCategories(),
-    prisma.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
+    db.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
   ]);
   const ev = events.find((e) => e.id === sp.eventId);
   const back = safeBack(sp.back, ev ? `/events/${ev.id}` : "/budget");

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { FALLBACK_CATEGORY } from "@/lib/meta";
 import { CategoryDot } from "@/components/CategoryDot";
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /** 카테고리 목록 (보기). 추가·수정은 작성 화면으로 */
 export default async function CategoriesPage() {
-  const [cats, counts] = await Promise.all([getCategories(), prisma.event.groupBy({ by: ["category"], _count: true })]);
+  const db = await scoped();
+  const [cats, counts] = await Promise.all([getCategories(), db.event.groupBy({ by: ["category"], _count: true })]);
   const count = (name: string) => counts.find((c) => c.category === name)?._count ?? 0;
   return (
     <main className="space-y-6">

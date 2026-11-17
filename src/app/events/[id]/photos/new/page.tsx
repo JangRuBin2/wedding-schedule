@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { WriteHeader } from "@/components/WriteHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPhotosPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const e = await prisma.event.findUnique({ where: { id }, select: { id: true, title: true } });
+  const e = await db.event.findUnique({ where: { id }, select: { id: true, title: true } });
   if (!e) notFound();
   return (
     <main className="space-y-6">

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { fromYmd } from "@/lib/dates";
 import { KINDS, type Kind } from "@/lib/meta";
@@ -16,13 +16,14 @@ type SP = Promise<{ date?: string | string[]; kind?: string | string[] }>;
 
 /** 추가 (작성 화면): 이벤트·할 일·결제를 여기서 골라 적음. 캘린더에서 고른 날짜를 미리 채우고, 저장하면 그 날짜의 캘린더로 */
 export default async function NewEntryPage({ searchParams }: { searchParams: SP }) {
+  const db = await scoped();
   const sp = await searchParams;
   const date = typeof sp.date === "string" && fromYmd(sp.date) ? sp.date : "";
   const initial: Kind = typeof sp.kind === "string" && sp.kind in KINDS ? (sp.kind as Kind) : "event";
   const back = date ? `/?date=${date}` : "/";
   const [cats, events] = await Promise.all([
     getCategories(),
-    prisma.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
+    db.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
   ]);
   return (
     <main className="space-y-6">

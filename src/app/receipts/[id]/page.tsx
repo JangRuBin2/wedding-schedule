@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { dateTimeLabel } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 /** 증빙 크게 보기. 빼기는 지출 수정 화면에서 */
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const r = await prisma.receipt.findUnique({
+  const r = await db.receipt.findUnique({
     where: { id },
     select: { id: true, width: true, height: true, name: true, ready: true, createdAt: true, createdBy: true, expense: { select: { id: true, title: true } } },
   });

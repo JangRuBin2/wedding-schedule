@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { JSONContent } from "@tiptap/core";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { dateTimeLabel } from "@/lib/dates";
 import { noteTitle } from "@/lib/note-doc";
 import { NoteBody } from "@/components/notes/NoteBody";
@@ -10,8 +10,9 @@ export const dynamic = "force-dynamic";
 
 /** 메모 보기 (보기 화면). 고치기는 작성 화면에서 */
 export default async function NotePage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const n = await prisma.note.findUnique({ where: { id } });
+  const n = await db.note.findUnique({ where: { id } });
   if (!n) notFound();
   const edited = n.updatedAt.getTime() - n.createdAt.getTime() > 1000;
 

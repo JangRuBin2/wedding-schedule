@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { scoped } from "@/lib/tenant";
 import { SubmitButton } from "@/components/SubmitButton";
 import { WriteHeader } from "@/components/WriteHeader";
 import { deletePhoto } from "../../../actions";
@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
 
 /** 사진 삭제 (작성 화면). 지우면 되돌릴 수 없어서 한 번 더 보여 주고 지움 */
 export default async function DeletePhotoPage({ params }: { params: Promise<{ id: string }> }) {
+  const db = await scoped();
   const { id } = await params;
-  const p = await prisma.photo.findUnique({ where: { id }, select: { id: true, event: { select: { title: true } } } });
+  const p = await db.photo.findUnique({ where: { id }, select: { id: true, event: { select: { title: true } } } });
   if (!p) notFound();
   return (
     <main className="space-y-6">

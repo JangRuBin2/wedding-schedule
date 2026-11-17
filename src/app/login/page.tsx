@@ -1,13 +1,28 @@
 import { redirect } from "next/navigation";
-import { kakaoEnabled } from "@/lib/session";
+import { kakaoEnabled, MISSING_SECRET } from "@/lib/session";
+import { safeBack } from "@/lib/back";
+import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Tip } from "@/components/Tip";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string | string[] }> }) {
+/** 로그인 실패 안내는 정해 둔 문구만 보여 줌 (주소에 아무 문구나 넣어 속이는 걸 막음) */
+const KNOWN_ERRORS = new Set([
+  MISSING_SECRET,
+  "카카오 로그인을 취소했어요",
+  "로그인 요청이 만료됐어요. 다시 시도해 주세요",
+  "카카오 인증에 실패했어요. Redirect URI 설정을 확인해 주세요",
+  "카카오 사용자 정보를 받지 못했어요",
+  "이용이 제한된 계정이에요",
+]);
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string | string[]; next?: string | string[] }> }) {
   if (!kakaoEnabled()) redirect("/");
-  const { error } = await searchParams;
+  const { error: rawError, next } = await searchParams;
+  const error = typeof rawError === "string" ? (KNOWN_ERRORS.has(rawError) ? rawError : "로그인하지 못했어요. 다시 시도해 주세요") : null;
+  const back = safeBack(next, "");
+  const invited = back.startsWith("/join/");
   return (
     <main className="flex min-h-[70dvh] flex-col items-center justify-center gap-8 text-center">
       <div className="flex flex-col items-center gap-3">
@@ -20,7 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-xs space-y-3">
         {/* 카카오 로그인 버튼 가이드: #FEE500 배경, 검정 85% 글씨, 말풍선 심볼 */}
         <a
-          href="/api/auth/kakao/login"
+          href={`/api/auth/kakao/login${back ? `?next=${encodeURIComponent(back)}` : ""}`}
           className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-[#FEE500] py-3.5 text-[15px] font-semibold text-black/85"
         >
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
@@ -28,8 +43,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </svg>
           카카오 로그인
         </a>
-        {typeof error === "string" && <p className="text-[13px] font-semibold text-spend">{error}</p>}
-        <p className="flex items-center justify-center gap-1 text-[12px] text-sub">관리자 승인 후 이용할 수 있어요<Tip>처음 로그인한 사람이 관리자가 되고, 이후 로그인한 사람은 관리자가 승인하면 들어올 수 있어요</Tip></p>
+        {error && <p className="text-[13px] font-semibold text-spend">{error}</p>}
+        <p className="flex items-center justify-center gap-1 text-[12px] text-sub">
+          {invited ? "로그인하면 초대받은 커플에 들어가요" : "로그인한 뒤 새로 시작하거나 초대 링크로 들어가요"}
+          <Tip>둘 중 한 명이 먼저 시작하고, 마이 → 초대 링크를 상대에게 보내면 같은 일정을 같이 써요</Tip>
+        </p>
+        <p className="text-[11px] text-faint">
+          로그인하면 <Link href="/terms" className="underline underline-offset-2">이용약관</Link>과{" "}
+          <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>에 동의하는 것으로 봐요
+        </p>
       </div>
     </main>
   );
