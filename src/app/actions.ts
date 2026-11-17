@@ -352,11 +352,6 @@ export async function setPaid(id: string, paid: boolean) {
   refresh();
 }
 
-/** 캘린더·체크 칸용: 지금 화면에 보이는 상태(done)의 반대로 */
-export async function togglePaid(id: string, shownDone: boolean) {
-  await setPaid(id, !shownDone);
-}
-
 /** 추가 화면(/new)의 '결제': 증빙 없이 칸만 (증빙은 저장한 뒤 상세에서 붙임) */
 async function addPayment(form: FormData) {
   const title = text(form, "title", 60);

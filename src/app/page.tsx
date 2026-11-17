@@ -32,7 +32,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     time: timeLabel(i.startTime, i.endTime),
     place: i.place ?? undefined,
     amount: i.amount ? won(i.amount) : undefined,
-    href: `/events/${i.eventId}`,
+    // 결제는 그 결제 상세로 (거기서 결제 완료), 나머지는 이벤트로
+    href: i.kind === "due" ? `/expenses/${i.id}` : `/events/${i.eventId}`,
     done: i.done,
   }));
   const overdue = upcoming(items, now).filter((i) => i.days < 0);
