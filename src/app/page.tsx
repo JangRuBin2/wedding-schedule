@@ -9,6 +9,8 @@ import { kakaoEnabled } from "@/lib/session";
 import { scheduleItems, upcoming } from "@/lib/upcoming";
 import { Calendar, type CalItem } from "@/components/Calendar";
 import { MePicker } from "@/components/MePicker";
+import { SupportPrompt } from "@/components/SupportPrompt";
+import { supportPromptForHome } from "@/lib/support-server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const initial = typeof date === "string" && fromYmd(date) ? date : undefined;
   const [wedding, events, me, cats] = await Promise.all([getWedding(), getEvents(), getMe(), getCategories()]);
   if (!wedding) redirect("/start");
+  const support = await supportPromptForHome(now);
 
   const items = scheduleItems(events);
   const calItems: CalItem[] = items.map((i) => ({
@@ -42,6 +45,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="space-y-6">
+      {support && <SupportPrompt url={support.url} done={support.done} />}
       <header className="flex items-start gap-3 pt-2">
         <div className="min-w-0 flex-1">
           <h1 className="serif flex items-center gap-2 text-[34px] leading-tight">

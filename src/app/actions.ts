@@ -17,6 +17,7 @@ import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
 import { safeBack } from "@/lib/back";
 import { currentUser, getCouple, LEGACY_COUPLE, scoped, scopedClient, type ScopedDb } from "@/lib/tenant";
 import { kakaoEnabled, SESSION_COOKIE } from "@/lib/session";
+import { supportAnswer } from "@/lib/support";
 import { parseNoteDoc } from "@/lib/note-doc";
 import type { Prisma } from "@/generated/prisma/client";
 import { EVENT_TEMPLATES, SUGGESTED_TASKS, templateOffset } from "@/lib/templates";
@@ -823,4 +824,14 @@ export async function renameUser(form: FormData) {
   }
   refresh();
   redirect("/settings");
+}
+
+// ── 후원 안내 (개발자에게 커피 한 잔) ──
+
+/** 팝업 버튼: 나중에(30일) · 다시 보지 않기 · 커피 보냄(180일) */
+export async function answerSupport(kind: "later" | "never" | "supported") {
+  const me = await currentUser();
+  if (!me || !["later", "never", "supported"].includes(kind)) return;
+  await prisma.user.update({ where: { id: me.id }, data: supportAnswer(kind) });
+  refresh();
 }

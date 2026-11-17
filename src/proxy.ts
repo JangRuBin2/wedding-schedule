@@ -9,7 +9,21 @@ import { kakaoEnabled, readSession, SESSION_COOKIE } from "@/lib/session";
 /** 로그인 없이 열리는 주소: 개인정보처리방침·이용약관 (스토어 심사·가입 전 안내용) */
 const PUBLIC = ["/privacy", "/terms"];
 
+/**
+ * 플레이스토어 앱(TWA)은 시작 주소에 ?app=twa 를 붙여 열림 → 쿠키로 기억해서 앱 안에선 외부 결제(후원 링크)를 숨김
+ * (구글 플레이 정책: 앱 안에서 개인에게 보내는 후원은 Play 결제로만)
+ */
+const APP_COOKIE = "bomnal_app";
+
 export async function proxy(req: NextRequest) {
+  const res = await gate(req);
+  if (req.nextUrl.searchParams.get("app") === "twa" && !req.cookies.get(APP_COOKIE)) {
+    res.cookies.set({ name: APP_COOKIE, value: "twa", maxAge: 5 * 365 * 86400, sameSite: "lax", path: "/", httpOnly: true });
+  }
+  return res;
+}
+
+async function gate(req: NextRequest) {
   if (PUBLIC.includes(req.nextUrl.pathname)) return NextResponse.next();
   if (kakaoEnabled()) return kakao(req);
 

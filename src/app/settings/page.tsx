@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { currentUser, getCouple, scoped } from "@/lib/tenant";
 import { InviteLink } from "@/components/InviteLink";
+import { supportMenuUrl } from "@/lib/support-server";
 import { getCategories } from "@/lib/categories";
 import { getTheme, THEMES } from "@/lib/theme";
 import { getWedding } from "@/lib/data";
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
   // 우리 커플 멤버만
   const users = kakao && couple ? await prisma.user.findMany({ where: { coupleId: couple.id }, orderBy: { createdAt: "asc" } }) : [];
   const isOwner = user?.role === "OWNER";
+  const support = await supportMenuUrl();
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
   const missing = EVENT_TEMPLATES.length - templateCount;
@@ -157,6 +159,7 @@ export default async function SettingsPage() {
       <section>
         <h2 className="section-title">앱</h2>
         <ul className="card ledger mb-3 !py-1">
+          {support && <Row href="/settings/support" label="☕ 개발자에게 커피 한 잔">{""}</Row>}
           <Row href="/privacy" label="개인정보처리방침">{""}</Row>
           <Row href="/terms" label="이용약관">{""}</Row>
         </ul>
