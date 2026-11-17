@@ -11,7 +11,7 @@ export const OPERATOR = {
    * 후원(커피 한 잔) 받을 주소. 카카오페이 송금코드 링크 등 https 주소. 비어 있으면 후원 메뉴·안내를 아예 안 보여 줌.
    * 카카오톡 → 더보기 → 오른쪽 위 스캐너 → 송금코드 → 링크 복사
    */
-  supportUrl: "",
+  supportUrl: "https://qr.kakaopay.com/281006011133733132006744",
   /** 시행일 */
   effective: "2026-11-17",
 };
