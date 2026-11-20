@@ -508,34 +508,43 @@ export async function saveExpense(form: FormData): Promise<Result<{ id: string }
   return { ok: true, id };
 }
 
+const PART_LABELS = ["계약금", "중도금", "잔금", "추가금", "전액"];
+
 /**
- * 계약금·잔금을 한 번에 기록 (새로 적을 때만). 항목 이름 하나에 '계약금'·'잔금'을 붙여 지출 두 개를 한 트랜잭션으로 만듦.
- * 상태·금액·날짜는 따로, 카테고리·이벤트·메모는 같이. 첨부는 화면이 첫 번째(계약금)에 올림
+ * 새 결제·지출 기록. 작성 화면에서 계약금·잔금 등 칸마다 적은 것을 parts(JSON)로 받아 한 건씩 만듦 (한 트랜잭션).
+ * 제목은 '항목 + 결제 이름'(예: 헤어 메이크업 계약금), '전액'이면 항목 그대로. 카테고리·이벤트·메모는 같이.
+ * 첨부는 화면이 첫 번째 건에 올림
  */
-export async function saveExpensePair(form: FormData): Promise<Result<{ ids: string[] }>> {
+export async function saveExpenses(form: FormData): Promise<Result<{ ids: string[] }>> {
   const db = await scoped();
   const base = text(form, "title", 50);
   if (!base) return { ok: false, error: "항목을 입력해 주세요" };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(form.get("parts") ?? "[]"));
+  } catch {
+    raw = null;
+  }
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 6) return { ok: false, error: "결제 금액이나 날짜를 하나 이상 적어 주세요" };
   const parts: { title: string; amount: number | null; date: Date; paid: boolean }[] = [];
-  for (const [key, label] of [
-    ["deposit", "계약금"],
-    ["balance", "잔금"],
-  ] as const) {
-    const raw = text(form, `${key}.amount`, 30);
-    const amount = parseWon(raw);
-    const date = fromYmd(form.get(`${key}.date`));
-    const paid = form.get(`${key}.status`) !== "planned";
-    if (raw && !amount) return { ok: false, error: `${label} 금액은 원 단위 숫자로 20억 원까지 입력해 주세요` };
-    if (paid && !amount) return { ok: false, error: `낸 ${label}은 금액을 입력해 주세요` };
-    if (!date) return { ok: false, error: `${label} ${paid ? "결제일" : "낼 날"}을 골라 주세요` };
-    parts.push({ title: `${base} ${label}`, amount, date, paid });
+  for (const p of raw as Record<string, unknown>[]) {
+    const label = PART_LABELS.includes(String(p?.label)) ? String(p.label) : "전액";
+    const name = label === "전액" ? "결제" : label;
+    const rawAmount = String(p?.amount ?? "").slice(0, 30);
+    const amount = parseWon(rawAmount);
+    const paid = p?.paid !== false;
+    const date = fromYmd(p?.date);
+    if (rawAmount && !amount) return { ok: false, error: `${name} 금액은 원 단위 숫자로 20억 원까지 입력해 주세요` };
+    if (paid && !amount) return { ok: false, error: `낸 ${name}은 금액을 입력해 주세요` };
+    if (!date) return { ok: false, error: `${name} ${paid ? "결제일" : "낼 날"}을 골라 주세요` };
+    parts.push({ title: label === "전액" ? base : `${base} ${label}`, amount, date, paid });
   }
   const eventId = text(form, "eventId", 40) || null;
   if (eventId && !(await db.event.findUnique({ where: { id: eventId }, select: { id: true } })))
     return { ok: false, error: "고른 이벤트가 없어요. 다시 골라 주세요" };
   const me = await getMe();
   const shared = { category: await validCategory(form.get("category")), eventId, memo: text(form, "memo", 1000) || null, createdBy: me, updatedBy: me };
-  const created = await db.$transaction(
+  const created: { id: string }[] = await db.$transaction(
     parts.map((p) =>
       db.expense.create({
         data: { ...p, ...shared, ...(p.paid ? { paidAt: new Date(), paidBy: me } : {}) },

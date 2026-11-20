@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, saveExpensePair, startReceiptFile } from "@/app/actions";
+import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, saveExpenses, startReceiptFile } from "@/app/actions";
 import { ACCEPT, CHUNK, fileMime, MAX_FILE, sizeLabel } from "@/lib/attach";
 import { FileTile } from "./FileTile";
 import { EXPENSE_SUGGESTIONS } from "@/lib/meta";
@@ -10,8 +10,14 @@ import { shrink } from "@/lib/shrink";
 import { SuggestInput } from "./SuggestInput";
 
 const MAX_RECEIPTS = 10;
-/** '계약금·잔금 함께' 모드의 항목 추천 (뒤에 계약금·잔금이 붙음) */
-const PAIR_SUGGESTIONS = ["드레스", "스튜디오", "메이크업", "웨딩홀", "플래너", "스냅", "본식 영상", "예물", "신혼여행"];
+/** 새로 적을 때 항목 추천 (뒤에 결제 이름이 붙음) */
+const NEW_SUGGESTIONS = ["드레스", "스튜디오", "헤어 메이크업", "웨딩홀", "플래너", "스냅", "본식 영상", "예물", "신혼여행", "식대", "부케", "청첩장 인쇄", "답례품"];
+/** 결제 한 건의 이름. '전액'이면 항목 이름 그대로 저장 */
+const PART_LABELS = ["계약금", "중도금", "잔금", "추가금", "전액"] as const;
+type Part = { key: number; label: string; paid: boolean; amount: string; date: string };
+const toNum = (s: string) => Number(s.replace(/,/g, "")) || 0;
+/** 저장할 칸: 금액을 적었거나, 결제 예정인데 날짜를 골랐으면 */
+const isActive = (p: Part) => toNum(p.amount) > 0 || (!p.paid && !!p.date);
 
 type Existing = { id: string; width: number; height: number; mime: string; name: string | null; size: number | null };
 
@@ -58,12 +64,18 @@ export function ExpenseForm({
 }) {
   const router = useRouter();
   const [savedId, setSavedId] = useState(initial.id ?? "");
+  const [savedMany, setSavedMany] = useState(false);
   const [amount, setAmount] = useState(initial.amount ? groupDigits(String(initial.amount)) : "");
   const [paid, setPaid] = useState(initial.paid ?? true);
-  // 새로 적을 때만: 계약금·잔금을 한 화면에서 같이 적기
-  const [pair, setPair] = useState(false);
-  const [pairTotal, setPairTotal] = useState({ deposit: 0, balance: 0 });
+  // 새로 적을 때: 계약금·잔금 칸이 처음부터 나뉘어 있고, 적은 것마다 한 건씩 저장
   const isNew = !initial.id;
+  const [parts, setParts] = useState<Part[]>(() => [
+    // 결제 예정으로 시작하면 날짜는 비워 둠 (날짜만으로도 저장 대상이 되니까)
+    { key: 1, label: "계약금", paid: initial.paid ?? true, amount: "", date: initial.paid === false ? "" : initial.date },
+    { key: 2, label: "잔금", paid: false, amount: "", date: "" },
+  ]);
+  const active = parts.filter(isActive);
+  const activeSum = active.reduce((n, p) => n + toNum(p.amount), 0);
   const [removed, setRemoved] = useState<string[]>([]);
   // 저장하면서 이미 지운 증빙 (업로드가 중간에 실패해도 다시 보이지 않게)
   const [gone, setGone] = useState<string[]>([]);
@@ -105,14 +117,20 @@ export function ExpenseForm({
       setStatus("저장 중…");
       const fd = new FormData(form);
       let saved: { id: string };
-      if (pair) {
-        // 이미 둘 다 만들었고 첨부만 남았으면 다시 만들지 않음 (중복 방지)
+      let many = false;
+      if (isNew) {
+        // 이미 만들었고 첨부만 남았으면 다시 만들지 않음 (중복 방지)
         if (savedId) saved = { id: savedId };
         else {
-          const r = await saveExpensePair(fd);
+          if (!active.length) throw new Error("결제 금액이나 날짜를 하나 이상 적어 주세요");
+          fd.set("parts", JSON.stringify(active.map(({ label, paid, amount, date }) => ({ label, paid, amount, date }))));
+          const r = await saveExpenses(fd);
           if (!r.ok) throw new Error(r.error);
           saved = { id: r.ids[0] };
+          many = r.ids.length > 1;
+          setSavedMany(many);
         }
+        many ||= savedMany;
       } else {
         fd.set("id", savedId);
         fd.delete("removeReceipt");
@@ -146,8 +164,8 @@ export function ExpenseForm({
         setFiles((prev) => prev.filter((f) => f !== queue[i]));
       }
       setStatus("완료");
-      // 함께 적었으면 두 개가 다 보이는 내역으로
-      router.replace(pair ? "/expenses" : `/expenses/${saved.id}`);
+      // 여러 건이면 다 보이는 내역으로, 한 건이면 그 상세로
+      router.replace(many ? "/expenses" : `/expenses/${saved.id}`);
       router.refresh();
     } catch (e) {
       setStatus("");
@@ -163,56 +181,43 @@ export function ExpenseForm({
         if (!busy) submit(e.currentTarget);
       }}
     >
-      {isNew && (
-        <fieldset className="space-y-1.5" disabled={!!savedId}>
-          <legend className="label mb-1.5">기록 방식</legend>
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
-            {[
-              { v: false, label: "하나만" },
-              { v: true, label: "계약금 + 잔금 함께" },
-            ].map((o) => (
-              <label
-                key={o.label}
-                className={`cursor-pointer rounded-lg py-2 text-center text-[13px] font-semibold ${pair === o.v ? "bg-card shadow-sm" : "text-sub"}`}
-              >
-                <input type="radio" name="mode" value={o.v ? "pair" : "one"} checked={pair === o.v} onChange={() => setPair(o.v)} className="sr-only" />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
-
-      {pair ? (
+      {isNew ? (
         <>
           <div className="space-y-1.5">
             <label htmlFor="expense-title" className="label block">항목</label>
-            <SuggestInput key="pair" id="expense-title" name="title" suggestions={PAIR_SUGGESTIONS} placeholder="예: 드레스" required maxLength={50} />
-            <p className="px-1 text-[12px] text-faint">뒤에 &apos;계약금&apos;·&apos;잔금&apos;이 붙어 두 건으로 저장돼요 (예: 드레스 계약금, 드레스 잔금)</p>
+            <SuggestInput id="expense-title" name="title" suggestions={NEW_SUGGESTIONS} placeholder="예: 헤어 메이크업" required maxLength={50} />
           </div>
-          <PairPart
-            name="deposit"
-            label="계약금"
-            date={initial.date}
-            initialPaid
-            onAmount={(n) => setPairTotal((t) => ({ ...t, deposit: n }))}
-          />
-          <PairPart
-            name="balance"
-            label="잔금"
-            date=""
-            initialPaid={false}
-            onAmount={(n) => setPairTotal((t) => ({ ...t, balance: n }))}
-          />
-          {pairTotal.deposit + pairTotal.balance > 0 && (
-            <p className="flex items-baseline justify-between px-1 text-[13px]">
-              <span className="text-sub">합계</span>
-              <span className="num font-semibold">{won(pairTotal.deposit + pairTotal.balance)}</span>
-            </p>
-          )}
+          <fieldset className="space-y-2.5" disabled={!!savedId}>
+            <legend className="label mb-1.5 flex w-full items-baseline justify-between">
+              <span>결제</span>
+              <span className="text-[12px] font-normal text-faint">금액이나 날짜를 적은 것만 저장돼요</span>
+            </legend>
+            {parts.map((pt, i) => (
+              <PartRow
+                key={pt.key}
+                part={pt}
+                index={i}
+                onChange={(v) => setParts((ps) => ps.map((x) => (x.key === pt.key ? { ...x, ...v } : x)))}
+                onRemove={parts.length > 1 ? () => setParts((ps) => ps.filter((x) => x.key !== pt.key)) : undefined}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => setParts((ps) => [...ps, { key: Date.now(), label: "중도금", paid: false, amount: "", date: "" }])}
+              className="w-full rounded-xl border border-dashed border-line py-2.5 text-[13px] font-semibold text-sub"
+            >
+              + 결제 더하기 (중도금·추가금)
+            </button>
+            {active.length > 0 && (
+              <p className="flex items-baseline justify-between px-1 text-[13px]">
+                <span className="text-sub">{active.length}건 저장</span>
+                {activeSum > 0 && <span className="num font-semibold">합계 {won(activeSum)}</span>}
+              </p>
+            )}
+          </fieldset>
         </>
       ) : (
-      <>
+        <>
       <fieldset className="space-y-1.5">
         <legend className="label mb-1.5">상태</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -234,7 +239,7 @@ export function ExpenseForm({
 
       <div className="space-y-1.5">
         <label htmlFor="expense-title" className="label block">항목</label>
-        <SuggestInput key="one" id="expense-title" name="title" defaultValue={initial.title} append suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
+        <SuggestInput id="expense-title" name="title" defaultValue={initial.title} append suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
       </div>
 
       <div className="space-y-1.5">
@@ -260,7 +265,7 @@ export function ExpenseForm({
         <span className="label">{paid ? "결제일" : "낼 날"}</span>
         <input name="date" type="date" defaultValue={initial.date} required className="input" />
       </label>
-      </>
+        </>
       )}
 
       {categoryField}
@@ -326,7 +331,7 @@ export function ExpenseForm({
             e.target.value = "";
           }}
         />
-        {pair && <p className="text-[12px] text-faint">첨부는 계약금 쪽에 붙어요</p>}
+        {isNew && active.length > 1 && <p className="text-[12px] text-faint">첨부는 첫 번째 결제({active[0].label})에 붙어요</p>}
         <p className="text-[12px] text-faint">영수증·이체 내역 캡처 같은 이미지(자동으로 줄임)와 계약서 PDF·한글·워드·엑셀 파일(5MB 까지). 여러 개 한 번에 고를 수 있어요</p>
         {removed.length > 0 && (
           <p className="text-[12px] text-spend">
@@ -346,83 +351,85 @@ export function ExpenseForm({
   );
 }
 
-/** '계약금 + 잔금 함께' 모드의 한 건: 상태(완료/예정)·금액·날짜. 칸 이름은 deposit.amount 처럼 앞에 name 이 붙음 */
-function PairPart({
-  name,
-  label,
-  date,
-  initialPaid,
-  onAmount,
+/** 새로 적을 때의 결제 한 건: 이름(계약금·잔금 등)·상태·금액·날짜. 값은 위(ExpenseForm)에서 들고 있음 */
+function PartRow({
+  part,
+  index,
+  onChange,
+  onRemove,
 }: {
-  name: string;
-  label: string;
-  date: string;
-  initialPaid: boolean;
-  onAmount: (n: number) => void;
+  part: Part;
+  index: number;
+  onChange: (v: Partial<Part>) => void;
+  onRemove?: () => void;
 }) {
-  const [paid, setPaid] = useState(initialPaid);
-  const [amount, setAmount] = useState("");
-  const n = Number(amount.replace(/,/g, ""));
+  const n = toNum(part.amount);
+  const on = isActive(part);
+  const id = (k: string) => (index === 0 ? `expense-${k}` : `expense-${k}-${index + 1}`);
   return (
-    <fieldset className="space-y-3 rounded-xl border border-line p-3.5">
-      <legend className="sr-only">{label}</legend>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[15px] font-bold">{label}</span>
-        <div className="flex gap-1 rounded-lg bg-paper p-0.5">
+    <div className={`space-y-2.5 rounded-xl border p-3 ${on ? "border-save" : "border-line"}`}>
+      <div className="flex items-center gap-2">
+        <select
+          value={part.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          aria-label={`${index + 1}번째 결제 이름`}
+          className="select !py-1 text-[14px] font-bold"
+        >
+          {PART_LABELS.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <div className="ml-auto flex gap-0.5 rounded-lg bg-paper p-0.5">
           {[
-            { v: true, label: "결제 완료" },
-            { v: false, label: "결제 예정" },
+            { v: true, label: "완료" },
+            { v: false, label: "예정" },
           ].map((o) => (
-            <label
+            <button
+              type="button"
               key={o.label}
-              className={`cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-semibold ${paid === o.v ? "bg-save-soft text-ink" : "text-sub"}`}
+              onClick={() => onChange({ paid: o.v })}
+              aria-pressed={part.paid === o.v}
+              aria-label={`${part.label} 결제 ${o.label}`}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-semibold ${part.paid === o.v ? "bg-save-soft text-ink" : "text-sub"}`}
             >
-              <input
-                type="radio"
-                name={`${name}.status`}
-                value={o.v ? "paid" : "planned"}
-                checked={paid === o.v}
-                onChange={() => setPaid(o.v)}
-                aria-label={`${label} ${o.label}`}
-                className="sr-only"
-              />
               {o.label}
-            </label>
+            </button>
           ))}
         </div>
+        {onRemove && (
+          <button type="button" onClick={onRemove} aria-label={`${part.label} 빼기`} className="px-1 text-[14px] text-faint">
+            ✕
+          </button>
+        )}
       </div>
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <span className="relative block">
-          <input
-            id={`expense-${name}-amount`}
-            name={`${name}.amount`}
-            value={amount}
-            onChange={(e) => {
-              const v = groupDigits(e.target.value);
-              setAmount(v);
-              onAmount(Number(v.replace(/,/g, "")) || 0);
-            }}
-            placeholder={paid ? "낸 금액" : "낼 금액 (선택)"}
-            aria-label={`${label} ${paid ? "낸 금액" : "낼 금액"}`}
-            inputMode="numeric"
-            autoComplete="off"
-            required={paid}
-            className="input num pr-9 text-right"
-          />
-          <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
-        </span>
+      <span className="relative block">
         <input
-          id={`expense-${name}-date`}
-          name={`${name}.date`}
-          type="date"
-          defaultValue={date}
-          required
-          aria-label={`${label} ${paid ? "결제일" : "낼 날"}`}
-          className="input w-[9.5rem]"
+          id={id("amount")}
+          value={part.amount}
+          onChange={(e) => onChange({ amount: groupDigits(e.target.value) })}
+          placeholder={part.paid ? "낸 금액" : "낼 금액 (모르면 비워 두기)"}
+          aria-label={`${part.label} 금액`}
+          inputMode="numeric"
+          autoComplete="off"
+          className="input num pr-9 text-right"
         />
-      </div>
-      {n >= 10_000 && <p className="num px-1 text-right text-[12px] text-sub">{won(n)}</p>}
-    </fieldset>
+        <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
+      </span>
+      {n >= 10_000 && <p className="num -mt-1 px-1 text-right text-[12px] text-sub">{won(n)}</p>}
+      <label className="flex items-center gap-2">
+        <span className="w-14 shrink-0 text-[13px] text-sub">{part.paid ? "결제일" : "낼 날"}</span>
+        <input
+          id={id("date")}
+          type="date"
+          value={part.date}
+          onChange={(e) => onChange({ date: e.target.value })}
+          required={on}
+          className="input"
+        />
+      </label>
+    </div>
   );
 }
 

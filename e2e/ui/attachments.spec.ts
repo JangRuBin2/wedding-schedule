@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { attachFiles, attachmentTiles, clickSaveExpense, fakePdf, fileLink, fillExpense, formError, gotoNewExpense } from "../support/money";
+import { attachFiles, attachmentTiles, clickSaveExpense, fakePdf, fileLink, fillNewExpense, formError, gotoNewExpense } from "../support/money";
 import { createCouple, loginAs } from "../support/seed";
 
 /** 지출 첨부: 이미지 외 파일(PDF·한글·엑셀 등) 5MB 까지. 큰 파일은 2MB 조각으로 나눠 올린다 */
@@ -13,10 +13,10 @@ test("5MB 가까운 PDF 도 그대로 올라가고, 내려받으면 같은 파�
   const pdf = fakePdf("드레스 계약서.pdf", 4_800_000);
 
   await gotoNewExpense(page);
-  await fillExpense(page, { title: "드레스 계약", amount: "1500000" });
+  await fillNewExpense(page, "드레스", [{ amount: "1500000" }]);
   await attachFiles(page, [pdf]);
   await expect(attachmentTiles(page)).toHaveCount(1);
-  await clickSaveExpense(page, "드레스 계약");
+  await clickSaveExpense(page, "드레스 계약금");
 
   const link = fileLink(page, "드레스 계약서.pdf");
   await expect(link).toBeVisible();

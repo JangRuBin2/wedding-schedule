@@ -9,6 +9,20 @@ export const gotoNewExpense = (page: Page, query = "") => gotoPage(page, `/expen
 
 export const chooseStatus = (page: Page, status: "결제 완료" | "결제 예정") => page.locator("label").filter({ hasText: status }).first().click();
 
+/**
+ * 새 기록 화면: 항목 이름 + 결제 칸(1번째 계약금, 2번째 잔금…). n 은 몇 번째 결제 칸인지 (1부터).
+ * 저장되는 제목은 '항목 + 결제 이름' (예: 플래너 + 계약금 → 플래너 계약금)
+ */
+export const fillNewExpense = async (page: Page, title: string, parts: { n?: number; amount?: string; date?: string}[]): Promise<void> => {
+  await page.locator("#expense-title").fill(title);
+  for (const p of parts) {
+    const sfx = !p.n || p.n === 1 ? "" : `-${p.n}`;
+    if (p.amount !== undefined) await page.locator(`#expense-amount${sfx}`).fill(p.amount);
+    if (p.date) await page.locator(`#expense-date${sfx}`).fill(p.date);
+  }
+};
+
+/** 수정 화면 (한 건) */
 export const fillExpense = async (page: Page, v: { title: string; amount?: string; date?: string }): Promise<void> => {
   await page.locator("#expense-title").fill(v.title);
   if (v.amount !== undefined) await page.locator("#expense-amount").fill(v.amount);
