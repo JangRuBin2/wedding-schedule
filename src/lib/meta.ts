@@ -78,6 +78,17 @@ export const EVENT_SUGGESTIONS = [
 export const DUE_SUGGESTIONS = ["계약금", "중도금", "잔금", "추가금", "헬퍼비"];
 
 /** 지출 기록 항목 추천 */
+/** 결제 한 건의 이름. 제목은 '항목 + 이름'(헤어 메이크업 계약금), '전액'이면 항목 이름 그대로 */
+export const PART_LABELS = ["계약금", "중도금", "잔금", "추가금", "전액"] as const;
+/** '헤어 메이크업 계약금' → { base: '헤어 메이크업', label: '계약금' }. 결제 이름으로 안 끝나면 전액 */
+export function splitTitle(title: string): { base: string; label: string } {
+  for (const l of PART_LABELS) if (l !== "전액" && title.endsWith(` ${l}`)) return { base: title.slice(0, -l.length - 1).trim(), label: l };
+  return { base: title, label: "전액" };
+}
+export const joinTitle = (base: string, label: string) => (label === "전액" ? base : `${base} ${label}`);
+/** 작성·수정 화면의 결제 칸 하나. id 가 있으면 이미 저장된 건 */
+export type ExpensePart = { key: number; id?: string; label: string; paid: boolean; amount: string; date: string };
+
 export const EXPENSE_SUGGESTIONS = ["계약금", "잔금", "추가금", "헬퍼비", "부케", "식대", "청첩장 인쇄", "답례품", "교통비"];
 
 /** 일정 종류 색. 카테고리 색(파스텔)과 헷갈리지 않게 진하고 서로 확실히 다른 세 색 */

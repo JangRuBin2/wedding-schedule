@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, saveExpenses, startReceiptFile } from "@/app/actions";
+import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpenses, startReceiptFile } from "@/app/actions";
 import { ACCEPT, CHUNK, fileMime, MAX_FILE, sizeLabel } from "@/lib/attach";
 import { FileTile } from "./FileTile";
-import { EXPENSE_SUGGESTIONS } from "@/lib/meta";
+import { PART_LABELS, type ExpensePart as Part } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { shrink } from "@/lib/shrink";
 import { SuggestInput } from "./SuggestInput";
@@ -12,9 +12,6 @@ import { SuggestInput } from "./SuggestInput";
 const MAX_RECEIPTS = 10;
 /** 새로 적을 때 항목 추천 (뒤에 결제 이름이 붙음) */
 const NEW_SUGGESTIONS = ["드레스", "스튜디오", "헤어 메이크업", "웨딩홀", "플래너", "스냅", "본식 영상", "예물", "신혼여행", "식대", "부케", "청첩장 인쇄", "답례품"];
-/** 결제 한 건의 이름. '전액'이면 항목 이름 그대로 저장 */
-const PART_LABELS = ["계약금", "중도금", "잔금", "추가금", "전액"] as const;
-type Part = { key: number; label: string; paid: boolean; amount: string; date: string };
 const toNum = (s: string) => Number(s.replace(/,/g, "")) || 0;
 /** 저장할 칸: 금액을 적었거나, 결제 예정인데 날짜를 골랐으면 */
 const isActive = (p: Part) => toNum(p.amount) > 0 || (!p.paid && !!p.date);
@@ -41,7 +38,8 @@ async function uploadFile(expenseId: string, file: File, onProgress: (pct: numbe
   const done = await finishReceiptFile(start.id);
   if (!done.ok) throw new Error(done.error);
 }
-type Initial = { id?: string; title?: string; amount?: number | null; date: string; memo?: string; paid?: boolean };
+/** 수정이면 id(연 건)·title(항목 이름, 결제 이름 뺀 것)·parts(연 건이 맨 앞, 같은 항목의 다른 결제가 뒤) */
+type Initial = { id?: string; title?: string; date: string; memo?: string; paid?: boolean; parts?: Part[] };
 
 const groupDigits = (s: string) => s.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 10).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -65,16 +63,16 @@ export function ExpenseForm({
   const router = useRouter();
   const [savedId, setSavedId] = useState(initial.id ?? "");
   const [savedMany, setSavedMany] = useState(false);
-  const [amount, setAmount] = useState(initial.amount ? groupDigits(String(initial.amount)) : "");
-  const [paid, setPaid] = useState(initial.paid ?? true);
-  // 새로 적을 때: 계약금·잔금 칸이 처음부터 나뉘어 있고, 적은 것마다 한 건씩 저장
+  // 계약금·잔금 칸이 처음부터 나뉘어 있고, 적은 것마다 한 건씩 저장 (수정 화면은 같은 항목의 다른 결제도 같이 보여 줌)
   const isNew = !initial.id;
-  const [parts, setParts] = useState<Part[]>(() => [
+  const [parts, setParts] = useState<Part[]>(() => initial.parts ?? [
     // 결제 예정으로 시작하면 날짜는 비워 둠 (날짜만으로도 저장 대상이 되니까)
     { key: 1, label: "계약금", paid: initial.paid ?? true, amount: "", date: initial.paid === false ? "" : initial.date },
     { key: 2, label: "잔금", paid: false, amount: "", date: "" },
   ]);
   const active = parts.filter(isActive);
+  // 보낼 칸: 이미 저장된 건 전부 + 새로 적은 칸
+  const toSend = parts.filter((p) => p.id || isActive(p));
   const activeSum = active.reduce((n, p) => n + toNum(p.amount), 0);
   const [removed, setRemoved] = useState<string[]>([]);
   // 저장하면서 이미 지운 증빙 (업로드가 중간에 실패해도 다시 보이지 않게)
@@ -94,7 +92,6 @@ export function ExpenseForm({
 
   const kept = receipts.filter((r) => !removed.includes(r.id) && !gone.includes(r.id));
   const room = MAX_RECEIPTS - kept.length - files.length;
-  const amountNum = Number(amount.replace(/,/g, ""));
 
   const pick = (list: FileList | null) => {
     const problems: string[] = [];
@@ -116,29 +113,22 @@ export function ExpenseForm({
     try {
       setStatus("저장 중…");
       const fd = new FormData(form);
-      let saved: { id: string };
-      let many = false;
-      if (isNew) {
-        // 이미 만들었고 첨부만 남았으면 다시 만들지 않음 (중복 방지)
-        if (savedId) saved = { id: savedId };
-        else {
-          if (!active.length) throw new Error("결제 금액이나 날짜를 하나 이상 적어 주세요");
-          fd.set("parts", JSON.stringify(active.map(({ label, paid, amount, date }) => ({ label, paid, amount, date }))));
-          const r = await saveExpenses(fd);
-          if (!r.ok) throw new Error(r.error);
-          saved = { id: r.ids[0] };
-          many = r.ids.length > 1;
-          setSavedMany(many);
-        }
-        many ||= savedMany;
-      } else {
-        fd.set("id", savedId);
-        fd.delete("removeReceipt");
-        for (const id of removed) fd.append("removeReceipt", id);
-        const r = await saveExpense(fd);
-        if (!r.ok) throw new Error(r.error);
-        saved = r;
-      }
+      if (!toSend.length) throw new Error("결제 금액이나 날짜를 하나 이상 적어 주세요");
+      fd.set("parts", JSON.stringify(toSend.map(({ id, label, paid, amount, date }) => ({ id, label, paid, amount, date }))));
+      fd.set("id", initial.id ?? "");
+      fd.delete("removeReceipt");
+      for (const id of removed) fd.append("removeReceipt", id);
+      const r = await saveExpenses(fd);
+      if (!r.ok) throw new Error(r.error);
+      // 만든 건의 id 를 칸에 기억 (첨부 업로드가 실패해 다시 저장해도 또 만들지 않고 고침)
+      setParts((ps) => ps.map((p) => {
+        const i = toSend.findIndex((x) => x.key === p.key);
+        return i >= 0 ? { ...p, id: r.ids[i] } : p;
+      }));
+      // 첨부는 수정 화면이면 연 건에, 새로 적으면 첫 번째 건에
+      const saved = { id: initial.id ?? r.ids[0] };
+      const many = isNew && (savedMany || r.ids.length > 1);
+      setSavedMany(many);
       setSavedId(saved.id);
       setGone((g) => [...g, ...removed]);
       setRemoved([]);
@@ -181,92 +171,38 @@ export function ExpenseForm({
         if (!busy) submit(e.currentTarget);
       }}
     >
-      {isNew ? (
-        <>
-          <div className="space-y-1.5">
-            <label htmlFor="expense-title" className="label block">항목</label>
-            <SuggestInput id="expense-title" name="title" suggestions={NEW_SUGGESTIONS} placeholder="예: 헤어 메이크업" required maxLength={50} />
-          </div>
-          <fieldset className="space-y-2.5" disabled={!!savedId}>
-            <legend className="label mb-1.5 flex w-full items-baseline justify-between">
-              <span>결제</span>
-              <span className="text-[12px] font-normal text-faint">금액이나 날짜를 적은 것만 저장돼요</span>
-            </legend>
-            {parts.map((pt, i) => (
-              <PartRow
-                key={pt.key}
-                part={pt}
-                index={i}
-                onChange={(v) => setParts((ps) => ps.map((x) => (x.key === pt.key ? { ...x, ...v } : x)))}
-                onRemove={parts.length > 1 ? () => setParts((ps) => ps.filter((x) => x.key !== pt.key)) : undefined}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => setParts((ps) => [...ps, { key: Date.now(), label: "중도금", paid: false, amount: "", date: "" }])}
-              className="w-full rounded-xl border border-dashed border-line py-2.5 text-[13px] font-semibold text-sub"
-            >
-              + 결제 더하기 (중도금·추가금)
-            </button>
-            {active.length > 0 && (
-              <p className="flex items-baseline justify-between px-1 text-[13px]">
-                <span className="text-sub">{active.length}건 저장</span>
-                {activeSum > 0 && <span className="num font-semibold">합계 {won(activeSum)}</span>}
-              </p>
-            )}
-          </fieldset>
-        </>
-      ) : (
-        <>
-      <fieldset className="space-y-1.5">
-        <legend className="label mb-1.5">상태</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { v: true, label: "결제 완료", sub: "이미 낸 돈" },
-            { v: false, label: "결제 예정", sub: "낼 날·금액 챙기기" },
-          ].map((o) => (
-            <label
-              key={o.label}
-              className={`cursor-pointer rounded-xl border px-3 py-2.5 text-center ${paid === o.v ? "border-save bg-save-soft" : "border-line"}`}
-            >
-              <input type="radio" name="status" value={o.v ? "paid" : "planned"} checked={paid === o.v} onChange={() => setPaid(o.v)} className="sr-only" />
-              <span className="block text-[14px] font-bold">{o.label}</span>
-              <span className="block text-[11px] text-sub">{o.sub}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
       <div className="space-y-1.5">
         <label htmlFor="expense-title" className="label block">항목</label>
-        <SuggestInput id="expense-title" name="title" defaultValue={initial.title} append suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
+        <SuggestInput id="expense-title" name="title" defaultValue={initial.title} suggestions={NEW_SUGGESTIONS} placeholder="예: 헤어 메이크업" required maxLength={50} />
       </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor="expense-amount" className="label block">{paid ? "낸 금액" : "낼 금액 (모르면 비워 두기)"}</label>
-        <span className="relative block">
-          <input
-            id="expense-amount"
-            name="amount"
-            value={amount}
-            onChange={(e) => setAmount(groupDigits(e.target.value))}
-            placeholder="예: 1,250,000"
-            inputMode="numeric"
-            autoComplete="off"
-            required={paid}
-            className="input num pr-9 text-right"
+      <fieldset className="space-y-2.5">
+        <legend className="label mb-1.5 flex w-full items-baseline justify-between">
+          <span>결제</span>
+          <span className="text-[12px] font-normal text-faint">금액이나 날짜를 적은 것만 저장돼요</span>
+        </legend>
+        {parts.map((pt, i) => (
+          <PartRow
+            key={pt.key}
+            part={pt}
+            index={i}
+            onChange={(v) => setParts((ps) => ps.map((x) => (x.key === pt.key ? { ...x, ...v } : x)))}
+            onRemove={!pt.id && parts.length > 1 ? () => setParts((ps) => ps.filter((x) => x.key !== pt.key)) : undefined}
           />
-          <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
-        </span>
-        {amountNum >= 10_000 && <p className="num px-1 text-right text-[12px] text-sub">{won(amountNum)}</p>}
-      </div>
-
-      <label className="block space-y-1.5">
-        <span className="label">{paid ? "결제일" : "낼 날"}</span>
-        <input name="date" type="date" defaultValue={initial.date} required className="input" />
-      </label>
-        </>
-      )}
+        ))}
+        <button
+          type="button"
+          onClick={() => setParts((ps) => [...ps, { key: Date.now(), label: "중도금", paid: false, amount: "", date: "" }])}
+          className="w-full rounded-xl border border-dashed border-line py-2.5 text-[13px] font-semibold text-sub"
+        >
+          + 결제 더하기 (중도금·추가금)
+        </button>
+        {active.length > 0 && (
+          <p className="flex items-baseline justify-between px-1 text-[13px]">
+            <span className="text-sub">{active.length}건 저장</span>
+            {activeSum > 0 && <span className="num font-semibold">합계 {won(activeSum)}</span>}
+          </p>
+        )}
+      </fieldset>
 
       {categoryField}
       {eventField}
@@ -331,7 +267,9 @@ export function ExpenseForm({
             e.target.value = "";
           }}
         />
-        {isNew && active.length > 1 && <p className="text-[12px] text-faint">첨부는 첫 번째 결제({active[0].label})에 붙어요</p>}
+        {toSend.length > 1 && (
+          <p className="text-[12px] text-faint">첨부는 {isNew ? `첫 번째 결제(${active[0]?.label ?? ""})` : `${parts[0].label}`}에 붙어요</p>
+        )}
         <p className="text-[12px] text-faint">영수증·이체 내역 캡처 같은 이미지(자동으로 줄임)와 계약서 PDF·한글·워드·엑셀 파일(5MB 까지). 여러 개 한 번에 고를 수 있어요</p>
         {removed.length > 0 && (
           <p className="text-[12px] text-spend">
@@ -367,7 +305,7 @@ function PartRow({
   const on = isActive(part);
   const id = (k: string) => (index === 0 ? `expense-${k}` : `expense-${k}-${index + 1}`);
   return (
-    <div className={`space-y-2.5 rounded-xl border p-3 ${on ? "border-save" : "border-line"}`}>
+    <div className={`space-y-2.5 rounded-xl border p-3 ${on || part.id ? "border-save" : "border-line"}`}>
       <div className="flex items-center gap-2">
         <select
           value={part.label}
@@ -413,6 +351,7 @@ function PartRow({
           aria-label={`${part.label} 금액`}
           inputMode="numeric"
           autoComplete="off"
+          required={part.paid && (on || !!part.id)}
           className="input num pr-9 text-right"
         />
         <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
@@ -425,7 +364,7 @@ function PartRow({
           type="date"
           value={part.date}
           onChange={(e) => onChange({ date: e.target.value })}
-          required={on}
+          required={on || !!part.id}
           className="input"
         />
       </label>
