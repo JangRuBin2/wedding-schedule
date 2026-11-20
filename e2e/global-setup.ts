@@ -12,6 +12,12 @@ export default function globalSetup() {
   const { DATABASE_URL_UNPOOLED: _, ...env } = process.env;
   const run = (args: string[]) => execFileSync("npx", ["prisma", ...args], { env: { ...env, DATABASE_URL }, stdio: "pipe" });
   // 운영 배포와 같은 순서 (scripts/vercel-build.sh): 경고로 멈추는 변경을 먼저 → db push
-  run(["db", "execute", "--file", "prisma/pre-push.sql"]);
+  // 빈 DB(CI 처음 실행)면 고칠 테이블이 없어 P1014 로 실패함 → 그땐 건너뛰고 db push 가 새로 만듦
+  try {
+    run(["db", "execute", "--file", "prisma/pre-push.sql"]);
+  } catch (e) {
+    const out = String((e as { stdout?: Buffer }).stdout ?? "") + String((e as { stderr?: Buffer }).stderr ?? "");
+    if (!out.includes("P1014")) throw e;
+  }
   run(["db", "push"]);
 }
