@@ -72,3 +72,22 @@ test("결제 완료로 적을 때 금액이 없으면 저장되지 않는다", a
   await gotoPage(page, "/expenses", "결제·지출 내역");
   await expect(page.getByText("금액 빠짐")).toHaveCount(0);
 });
+
+test("계약금 + 잔금 함께: 한 화면에서 두 건이 각각 상태대로 저장된다", async ({ page, context }) => {
+  const couple = await createCouple();
+  await loginAs(context, couple.owner);
+  await gotoNewExpense(page);
+  await page.locator("label").filter({ hasText: "계약금 + 잔금 함께" }).click();
+  await page.locator("#expense-title").fill("드레스");
+  await page.locator("#expense-deposit-amount").fill("300000");
+  await page.locator("#expense-balance-amount").fill("1200000");
+  await page.locator("#expense-balance-date").fill("2027-03-10");
+  await page.getByRole("button", { name: "저장" }).click();
+  await waitForHeading(page, "결제·지출 내역");
+  await expect(page.getByText("드레스 계약금")).toBeVisible();
+  await expect(page.getByText("드레스 잔금")).toBeVisible();
+
+  await gotoBudget(page);
+  await expect(budgetStat(page, "지출")).toHaveText("30만 원");
+  await expect(budgetStat(page, "결제 예정")).toHaveText("120만 원");
+});

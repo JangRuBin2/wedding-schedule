@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, startReceiptFile } from "@/app/actions";
+import { addReceipt, appendReceiptChunk, finishReceiptFile, saveExpense, saveExpensePair, startReceiptFile } from "@/app/actions";
 import { ACCEPT, CHUNK, fileMime, MAX_FILE, sizeLabel } from "@/lib/attach";
 import { FileTile } from "./FileTile";
 import { EXPENSE_SUGGESTIONS } from "@/lib/meta";
@@ -10,6 +10,8 @@ import { shrink } from "@/lib/shrink";
 import { SuggestInput } from "./SuggestInput";
 
 const MAX_RECEIPTS = 10;
+/** '계약금·잔금 함께' 모드의 항목 추천 (뒤에 계약금·잔금이 붙음) */
+const PAIR_SUGGESTIONS = ["드레스", "스튜디오", "메이크업", "웨딩홀", "플래너", "스냅", "본식 영상", "예물", "신혼여행"];
 
 type Existing = { id: string; width: number; height: number; mime: string; name: string | null; size: number | null };
 
@@ -58,6 +60,10 @@ export function ExpenseForm({
   const [savedId, setSavedId] = useState(initial.id ?? "");
   const [amount, setAmount] = useState(initial.amount ? groupDigits(String(initial.amount)) : "");
   const [paid, setPaid] = useState(initial.paid ?? true);
+  // 새로 적을 때만: 계약금·잔금을 한 화면에서 같이 적기
+  const [pair, setPair] = useState(false);
+  const [pairTotal, setPairTotal] = useState({ deposit: 0, balance: 0 });
+  const isNew = !initial.id;
   const [removed, setRemoved] = useState<string[]>([]);
   // 저장하면서 이미 지운 증빙 (업로드가 중간에 실패해도 다시 보이지 않게)
   const [gone, setGone] = useState<string[]>([]);
@@ -98,11 +104,23 @@ export function ExpenseForm({
     try {
       setStatus("저장 중…");
       const fd = new FormData(form);
-      fd.set("id", savedId);
-      fd.delete("removeReceipt");
-      for (const id of removed) fd.append("removeReceipt", id);
-      const saved = await saveExpense(fd);
-      if (!saved.ok) throw new Error(saved.error);
+      let saved: { id: string };
+      if (pair) {
+        // 이미 둘 다 만들었고 첨부만 남았으면 다시 만들지 않음 (중복 방지)
+        if (savedId) saved = { id: savedId };
+        else {
+          const r = await saveExpensePair(fd);
+          if (!r.ok) throw new Error(r.error);
+          saved = { id: r.ids[0] };
+        }
+      } else {
+        fd.set("id", savedId);
+        fd.delete("removeReceipt");
+        for (const id of removed) fd.append("removeReceipt", id);
+        const r = await saveExpense(fd);
+        if (!r.ok) throw new Error(r.error);
+        saved = r;
+      }
       setSavedId(saved.id);
       setGone((g) => [...g, ...removed]);
       setRemoved([]);
@@ -128,7 +146,8 @@ export function ExpenseForm({
         setFiles((prev) => prev.filter((f) => f !== queue[i]));
       }
       setStatus("완료");
-      router.replace(`/expenses/${saved.id}`);
+      // 함께 적었으면 두 개가 다 보이는 내역으로
+      router.replace(pair ? "/expenses" : `/expenses/${saved.id}`);
       router.refresh();
     } catch (e) {
       setStatus("");
@@ -144,6 +163,56 @@ export function ExpenseForm({
         if (!busy) submit(e.currentTarget);
       }}
     >
+      {isNew && (
+        <fieldset className="space-y-1.5" disabled={!!savedId}>
+          <legend className="label mb-1.5">기록 방식</legend>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-paper p-1">
+            {[
+              { v: false, label: "하나만" },
+              { v: true, label: "계약금 + 잔금 함께" },
+            ].map((o) => (
+              <label
+                key={o.label}
+                className={`cursor-pointer rounded-lg py-2 text-center text-[13px] font-semibold ${pair === o.v ? "bg-card shadow-sm" : "text-sub"}`}
+              >
+                <input type="radio" name="mode" value={o.v ? "pair" : "one"} checked={pair === o.v} onChange={() => setPair(o.v)} className="sr-only" />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {pair ? (
+        <>
+          <div className="space-y-1.5">
+            <label htmlFor="expense-title" className="label block">항목</label>
+            <SuggestInput key="pair" id="expense-title" name="title" suggestions={PAIR_SUGGESTIONS} placeholder="예: 드레스" required maxLength={50} />
+            <p className="px-1 text-[12px] text-faint">뒤에 &apos;계약금&apos;·&apos;잔금&apos;이 붙어 두 건으로 저장돼요 (예: 드레스 계약금, 드레스 잔금)</p>
+          </div>
+          <PairPart
+            name="deposit"
+            label="계약금"
+            date={initial.date}
+            initialPaid
+            onAmount={(n) => setPairTotal((t) => ({ ...t, deposit: n }))}
+          />
+          <PairPart
+            name="balance"
+            label="잔금"
+            date=""
+            initialPaid={false}
+            onAmount={(n) => setPairTotal((t) => ({ ...t, balance: n }))}
+          />
+          {pairTotal.deposit + pairTotal.balance > 0 && (
+            <p className="flex items-baseline justify-between px-1 text-[13px]">
+              <span className="text-sub">합계</span>
+              <span className="num font-semibold">{won(pairTotal.deposit + pairTotal.balance)}</span>
+            </p>
+          )}
+        </>
+      ) : (
+      <>
       <fieldset className="space-y-1.5">
         <legend className="label mb-1.5">상태</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -165,7 +234,7 @@ export function ExpenseForm({
 
       <div className="space-y-1.5">
         <label htmlFor="expense-title" className="label block">항목</label>
-        <SuggestInput id="expense-title" name="title" defaultValue={initial.title} suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
+        <SuggestInput key="one" id="expense-title" name="title" defaultValue={initial.title} append suggestions={EXPENSE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
       </div>
 
       <div className="space-y-1.5">
@@ -191,6 +260,8 @@ export function ExpenseForm({
         <span className="label">{paid ? "결제일" : "낼 날"}</span>
         <input name="date" type="date" defaultValue={initial.date} required className="input" />
       </label>
+      </>
+      )}
 
       {categoryField}
       {eventField}
@@ -255,6 +326,7 @@ export function ExpenseForm({
             e.target.value = "";
           }}
         />
+        {pair && <p className="text-[12px] text-faint">첨부는 계약금 쪽에 붙어요</p>}
         <p className="text-[12px] text-faint">영수증·이체 내역 캡처 같은 이미지(자동으로 줄임)와 계약서 PDF·한글·워드·엑셀 파일(5MB 까지). 여러 개 한 번에 고를 수 있어요</p>
         {removed.length > 0 && (
           <p className="text-[12px] text-spend">
@@ -271,6 +343,86 @@ export function ExpenseForm({
         {status || (savedId && files.length && !initial.id ? `남은 증빙 ${files.length}장 다시 올리기` : "저장")}
       </button>
     </form>
+  );
+}
+
+/** '계약금 + 잔금 함께' 모드의 한 건: 상태(완료/예정)·금액·날짜. 칸 이름은 deposit.amount 처럼 앞에 name 이 붙음 */
+function PairPart({
+  name,
+  label,
+  date,
+  initialPaid,
+  onAmount,
+}: {
+  name: string;
+  label: string;
+  date: string;
+  initialPaid: boolean;
+  onAmount: (n: number) => void;
+}) {
+  const [paid, setPaid] = useState(initialPaid);
+  const [amount, setAmount] = useState("");
+  const n = Number(amount.replace(/,/g, ""));
+  return (
+    <fieldset className="space-y-3 rounded-xl border border-line p-3.5">
+      <legend className="sr-only">{label}</legend>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[15px] font-bold">{label}</span>
+        <div className="flex gap-1 rounded-lg bg-paper p-0.5">
+          {[
+            { v: true, label: "결제 완료" },
+            { v: false, label: "결제 예정" },
+          ].map((o) => (
+            <label
+              key={o.label}
+              className={`cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-semibold ${paid === o.v ? "bg-save-soft text-ink" : "text-sub"}`}
+            >
+              <input
+                type="radio"
+                name={`${name}.status`}
+                value={o.v ? "paid" : "planned"}
+                checked={paid === o.v}
+                onChange={() => setPaid(o.v)}
+                aria-label={`${label} ${o.label}`}
+                className="sr-only"
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <span className="relative block">
+          <input
+            id={`expense-${name}-amount`}
+            name={`${name}.amount`}
+            value={amount}
+            onChange={(e) => {
+              const v = groupDigits(e.target.value);
+              setAmount(v);
+              onAmount(Number(v.replace(/,/g, "")) || 0);
+            }}
+            placeholder={paid ? "낸 금액" : "낼 금액 (선택)"}
+            aria-label={`${label} ${paid ? "낸 금액" : "낼 금액"}`}
+            inputMode="numeric"
+            autoComplete="off"
+            required={paid}
+            className="input num pr-9 text-right"
+          />
+          <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-[14px] text-sub">원</span>
+        </span>
+        <input
+          id={`expense-${name}-date`}
+          name={`${name}.date`}
+          type="date"
+          defaultValue={date}
+          required
+          aria-label={`${label} ${paid ? "결제일" : "낼 날"}`}
+          className="input w-[9.5rem]"
+        />
+      </div>
+      {n >= 10_000 && <p className="num px-1 text-right text-[12px] text-sub">{won(n)}</p>}
+    </fieldset>
   );
 }
 

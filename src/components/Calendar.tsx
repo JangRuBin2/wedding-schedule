@@ -37,7 +37,8 @@ const weekday = (ymd: string) => WEEK_KO[new Date(`${ymd}T00:00:00Z`).getUTCDay(
 
 /**
  * 홈 캘린더. 칸의 막대·리스트 색은 종류(이벤트·할 일·결제)로 구분하고, 카테고리는 선택 상자로 거름.
- * 날짜를 누르면 바로 아래에 그날 일정과 '+ 추가'(그 날짜로 작성 화면을 엶)가 나옴. 달 넘기기·고르기는 화면 안에서만
+ * 날짜를 누르면 바로 아래에 그날 일정과 '+ 추가'(그 날짜로 작성 화면을 엶)가 나옴. 달 넘기기·고르기는 화면 안에서만.
+ * 가운데 'YYYY년 M월'을 누르면 연·월 고르기 판이 열려 먼 달로 바로 이동
  */
 export function Calendar({
   items,
@@ -56,6 +57,9 @@ export function Calendar({
   const [view, setView] = useState({ y: sy, m: sm - 1 });
   const [selected, setSelected] = useState<string>(start);
   const [cat, setCat] = useState("");
+  // 가운데 'YYYY년 M월'을 누르면 연·월을 한 번에 고르는 판이 달력 자리에 열림
+  const [picking, setPicking] = useState(false);
+  const [pickY, setPickY] = useState(sy);
 
   const shown = useMemo(() => (cat ? items.filter((i) => i.category === cat) : items), [items, cat]);
   const byDay = useMemo(() => {
@@ -71,15 +75,20 @@ export function Calendar({
   const cells = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
   while (cells.length % 7) cells.push(null);
 
-  const move = (delta: number) => {
-    const d = new Date(Date.UTC(view.y, view.m + delta, 1));
+  // 그 달로 이동: 이번 달이면 오늘, 아니면 그 달 첫 일정 날짜(없으면 1일)
+  const goTo = (y: number, m: number) => {
+    const d = new Date(Date.UTC(y, m, 1));
     const next = { y: d.getUTCFullYear(), m: d.getUTCMonth() };
     setView(next);
-    // 이번 달이면 오늘, 아니면 그 달 첫 일정 날짜(없으면 1일)
     const p = `${next.y}-${pad(next.m + 1)}`;
     const firstDay = [...byDay.keys()].filter((k) => k.startsWith(p)).sort()[0];
     setSelected(today.startsWith(p) ? today : (firstDay ?? `${p}-01`));
   };
+  const move = (delta: number) => {
+    goTo(view.y, view.m + delta);
+    setPickY(new Date(Date.UTC(view.y, view.m + delta, 1)).getUTCFullYear());
+  };
+  const [ty, tm] = [Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1];
 
   const dayItems = byDay.get(selected) ?? [];
   const monthItems = shown.filter((i) => i.ymd.startsWith(prefix)).sort(sortItems);
@@ -92,17 +101,75 @@ export function Calendar({
         <button
           type="button"
           onClick={() => {
-            setView({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 });
-            setSelected(today);
+            setPickY(view.y);
+            setPicking((v) => !v);
           }}
-          title="오늘로"
-          className="num text-[19px] font-semibold"
+          aria-expanded={picking}
+          aria-label={`${view.y}년 ${view.m + 1}월, 연·월 고르기`}
+          className="num flex items-center gap-1 text-[19px] font-semibold"
         >
           {view.y}년 {view.m + 1}월
+          <span className={`text-[12px] text-sub transition-transform ${picking ? "rotate-180" : ""}`} aria-hidden>
+            ▾
+          </span>
         </button>
         <button type="button" onClick={() => move(1)} aria-label="다음 달" className="p-2 text-[22px] leading-none text-sub">›</button>
       </div>
 
+      {picking ? (
+        <div className="card space-y-4 !p-4" role="dialog" aria-label="연·월 고르기">
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={() => setPickY((y) => y - 1)} aria-label="이전 해" className="p-2 text-[22px] leading-none text-sub">‹</button>
+            <span className="num text-[17px] font-semibold">{pickY}년</span>
+            <button type="button" onClick={() => setPickY((y) => y + 1)} aria-label="다음 해" className="p-2 text-[22px] leading-none text-sub">›</button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 12 }, (_, m) => {
+              const isView = pickY === view.y && m === view.m;
+              const isNow = pickY === ty && m === tm;
+              const count = [...byDay.keys()].filter((k) => k.startsWith(`${pickY}-${pad(m + 1)}`)).length;
+              return (
+                <button
+                  type="button"
+                  key={m}
+                  onClick={() => {
+                    goTo(pickY, m);
+                    setPicking(false);
+                  }}
+                  aria-pressed={isView}
+                  aria-label={`${pickY}년 ${m + 1}월${count ? `, 일정 있는 날 ${count}일` : ""}`}
+                  className={`num relative rounded-xl border py-3 text-[15px] transition-colors ${
+                    isView ? "border-save bg-save font-semibold text-on-save" : isNow ? "border-save bg-blush font-semibold" : "border-line bg-card"
+                  }`}
+                >
+                  {m + 1}월
+                  {count > 0 && (
+                    <span
+                      className={`absolute bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isView ? "bg-on-save" : "bg-save"}`}
+                      aria-hidden
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                goTo(ty, tm);
+                setPicking(false);
+              }}
+              className="btn flex-1 !py-2.5"
+            >
+              오늘로
+            </button>
+            <button type="button" onClick={() => setPicking(false)} className="flex-1 rounded-[14px] border border-line py-2.5 text-[14px] text-sub">
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : (
       <div>
         <div className="grid grid-cols-7 pb-2 text-center text-[10px] font-medium tracking-wide text-sub">
           {WEEK.map((w) => (
@@ -165,6 +232,7 @@ export function Calendar({
           </li>
         </ul>
       </div>
+      )}
 
       {/* 고른 날: 그날 일정 + 그 날짜로 추가 (무엇을 추가할지는 작성 화면에서 고름) */}
       <div className="card space-y-3 !p-4">
