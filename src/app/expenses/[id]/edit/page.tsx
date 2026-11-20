@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
 import { ymd } from "@/lib/dates";
+import { joinTitle, PART_LABELS, splitTitle, type ExpensePart } from "@/lib/meta";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { EventLinkSelect } from "@/components/EventLinkSelect";
 import { ExpenseForm } from "@/components/ExpenseForm";
@@ -33,11 +34,33 @@ export default async function EditExpensePage({
     db.event.findMany({ orderBy: [{ order: "asc" }], select: { id: true, title: true, category: true, date: true, done: true } }),
   ]);
   if (!x) notFound();
+  // 같은 항목의 다른 결제(헤어 메이크업 계약금 ↔ 잔금)를 같이 보여 줌. 연 건이 맨 앞
+  const { base, label } = splitTitle(x.title);
+  const siblings = await db.expense.findMany({
+    where: { id: { not: x.id }, title: { in: PART_LABELS.map((l) => joinTitle(base, l)) } },
+    orderBy: { date: "asc" },
+    select: { id: true, title: true, amount: true, date: true, paid: true },
+  });
+  const toPart = (e: { id: string; title: string; amount: number | null; date: Date; paid: boolean }, key: number): ExpensePart => ({
+    key,
+    id: e.id,
+    label: splitTitle(e.title).label,
+    paid: e.paid,
+    amount: e.amount ? e.amount.toLocaleString("en-US") : "",
+    date: ymd(e.date),
+  });
+  const parts = [{ ...toPart(x, 1), paid: x.paid || pay }, ...siblings.slice(0, 6).map((e, i) => toPart(e, i + 2))];
+  // 한 번에 낸 '전액'이 아니고 계약금이나 잔금이 없으면 빈 칸으로 채워 둠 (적으면 새로 생김)
+  const has = (l: string) => parts.some((p) => p.label === l);
+  if (label !== "전액") {
+    if (!has("잔금")) parts.push({ key: 90, label: "잔금", paid: false, amount: "", date: "" });
+    else if (!has("계약금")) parts.push({ key: 91, label: "계약금", paid: true, amount: "", date: "" });
+  }
   return (
     <main className="space-y-6">
       <WriteHeader back={`/expenses/${x.id}`} backLabel="취소" title={x.paid ? "지출 수정" : "결제 예정 수정"} />
       <ExpenseForm
-        initial={{ id: x.id, title: x.title, amount: x.amount, date: ymd(x.date), memo: x.memo ?? "", paid: x.paid || pay }}
+        initial={{ id: x.id, title: base, date: ymd(x.date), memo: x.memo ?? "", paid: x.paid || pay, parts }}
         receipts={x.receipts}
         categoryField={<CategoryPicker categories={cats} value={x.category} />}
         eventField={<EventLinkSelect events={events} value={x.eventId ?? ""} />}
