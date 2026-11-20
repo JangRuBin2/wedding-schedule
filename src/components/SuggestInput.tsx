@@ -14,6 +14,7 @@ export function SuggestInput({
   placeholder,
   maxLength,
   required,
+  append = false,
 }: {
   name: string;
   id?: string;
@@ -22,11 +23,22 @@ export function SuggestInput({
   placeholder?: string;
   maxLength?: number;
   required?: boolean;
+  /** true 면 칩이 적은 글 뒤에 붙음 ('드레스' + 계약금 → '드레스 계약금'). 이미 붙은 추천어는 바꿔 끼우고, 같은 걸 또 누르면 뗌 */
+  append?: boolean;
 }) {
   const [value, setValue] = useState(defaultValue);
   const q = value.trim();
   // 적고 있는 글자가 들어간 추천을 앞으로. 똑같이 적었으면 숨김
-  const list = q
+  // 붙이기 모드: 끝에 붙은 추천어(있으면)와 그 앞 이름을 나눔
+  const tail = append ? [...suggestions].sort((a, b) => b.length - a.length).find((s) => q === s || q.endsWith(` ${s}`)) : undefined;
+  const head = tail ? q.slice(0, q.length - tail.length).trim() : q;
+  const pick = (s: string) => {
+    if (!append) return setValue(s);
+    setValue(s === tail ? head : head ? `${head} ${s}` : s);
+  };
+  const list = append
+    ? suggestions
+    : q
     ? [...suggestions.filter((s) => s.includes(q)), ...suggestions.filter((s) => !s.includes(q))].filter((s) => s !== q)
     : suggestions;
   return (
@@ -50,8 +62,9 @@ export function SuggestInput({
               key={s}
               type="button"
               // 누르면 채우기만 하고 포커스는 안 줌 (폰에서 키보드가 올라와 아래 칸을 가리지 않게)
-              onClick={() => setValue(s)}
-              className="chip shrink-0 !py-1.5 !text-[12px]"
+              onClick={() => pick(s)}
+              aria-pressed={append ? s === tail : undefined}
+              className={`chip shrink-0 !py-1.5 !text-[12px] ${s === tail ? "!border-save !bg-save-soft font-semibold" : ""}`}
             >
               {s}
             </button>

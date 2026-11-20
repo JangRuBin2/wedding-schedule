@@ -32,7 +32,7 @@ export function DueFields({ date = "" }: { date?: string }) {
       </div>
       <div className="space-y-1.5">
         <label htmlFor="due-title" className="label block">항목</label>
-        <SuggestInput id="due-title" name="title" suggestions={DUE_SUGGESTIONS} placeholder="예: 잔금" required maxLength={60} />
+        <SuggestInput id="due-title" name="title" append suggestions={DUE_SUGGESTIONS} placeholder="예: 드레스 잔금" required maxLength={60} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="due-amount" className="label block">{paid ? "낸 금액" : "낼 금액 (모르면 비워 두기)"}</label>
