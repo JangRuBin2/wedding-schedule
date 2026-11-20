@@ -67,10 +67,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
   const paidSum = sum(pays.filter((p) => p.paid));
   const plannedSum = sum(pays.filter((p) => !p.paid));
   const now = new Date();
-  const last = [g, ...pays].reduce((a: { updatedAt: Date; updatedBy: string | null }, b) => (b.updatedAt > a.updatedAt ? b : a), g) as {
-    updatedAt: Date;
-    updatedBy: string | null;
-  };
+  // 마지막 수정: 항목·결제 중 가장 늦게 바뀐 것
+  const stamps: { updatedAt: Date; updatedBy: string | null }[] = [g, ...g.expenses].map((o: { updatedAt: Date; updatedBy: string | null }) => ({
+    updatedAt: o.updatedAt,
+    updatedBy: o.updatedBy,
+  }));
+  const last = stamps.reduce((a, b) => (b.updatedAt > a.updatedAt ? b : a));
   const edited = last.updatedAt.getTime() - g.createdAt.getTime() > 1000;
 
   return (

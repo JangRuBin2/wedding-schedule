@@ -29,14 +29,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: SP 
     getCategories(),
   ]);
   const all: GroupView[] = [
-    ...groups.filter((g: GroupView) => g.expenses.length > 0).map((g: GroupView & { id: string }) => ({ ...g, key: g.id })),
-    ...loose.map((x: GroupView["expenses"][number] & { title: string; category: string; event: { title: string } | null }) => ({
-      key: x.id,
-      title: x.title,
-      category: x.category,
-      event: x.event,
-      expenses: [{ ...x, label: "전액" }],
-    })),
+    ...groups.filter((g) => g.expenses.length > 0).map((g) => ({ ...g, key: g.id })),
+    ...loose.map((x) => ({ key: x.id, title: x.title, category: x.category, event: x.event, expenses: [{ ...x, label: "전액" }] })),
   ];
   const known = cats.some((c) => c.name === one(sp.cat));
   const cat = known ? one(sp.cat)! : null;
