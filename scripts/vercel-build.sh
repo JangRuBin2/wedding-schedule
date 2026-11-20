@@ -9,6 +9,7 @@ if [ "${VERCEL_ENV:-}" = "production" ]; then
   prisma db push
   tsx scripts/migrate-couples.ts
   tsx scripts/merge-dues.ts
+  tsx scripts/group-expenses.ts
   tsx scripts/move-photos-to-blob.ts
 else
   echo "preview build: DB 는 건드리지 않음"

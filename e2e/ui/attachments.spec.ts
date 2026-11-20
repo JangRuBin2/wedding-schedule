@@ -16,7 +16,7 @@ test("5MB 가까운 PDF 도 그대로 올라가고, 내려받으면 같은 파�
   await fillNewExpense(page, "드레스", [{ amount: "1500000" }]);
   await attachFiles(page, [pdf]);
   await expect(attachmentTiles(page)).toHaveCount(1);
-  await clickSaveExpense(page, "드레스 계약금");
+  await clickSaveExpense(page, "드레스");
 
   const link = fileLink(page, "드레스 계약서.pdf");
   await expect(link).toBeVisible();

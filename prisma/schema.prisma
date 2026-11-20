@@ -24,6 +24,7 @@ model Couple {
   categories Category[]
   events     Event[]
   expenses   Expense[]
+  expenseGroups ExpenseGroup[]
   notes      Note[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -83,6 +84,7 @@ model Event {
   dues        Due[]
   photos      Photo[]
   expenses    Expense[]
+  expenseGroups ExpenseGroup[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -173,12 +175,38 @@ model Photo {
   @@index([eventId])
 }
 
+/// 결제·지출 항목 (예: 스튜디오). 계약금·잔금 같은 결제(Expense) 여러 건을 묶음. 카테고리·이벤트는 여기 기준
+/// (결제 쪽 title·category·eventId 는 목록·캘린더·예산이 바로 쓰게 저장할 때 같이 맞춰 둔 복사본)
+model ExpenseGroup {
+  id        String    @id @default(cuid())
+  couple    Couple?   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
+  coupleId  String?
+  title     String
+  category  String    @default("기타")
+  event     Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId   String?
+  expenses  Expense[]
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  updatedBy String?
+
+  @@index([coupleId])
+  @@index([eventId])
+}
+
 /// 결제·지출 (돈 한 건). paid = 냈어요(예산 '지출'), 아니면 낼 예정(예산 '결제 예정', 캘린더에 결제로 보임).
 /// 이벤트에 묶지 않아도 됨 (이벤트를 지워도 기록은 남고 연결만 끊김)
 model Expense {
   id        String    @id @default(cuid())
   couple    Couple?   @relation(fields: [coupleId], references: [id], onDelete: Cascade)
   coupleId  String?
+  /// 묶인 항목. 비어 있으면 옛 기록 (배포할 때 scripts/group-expenses.ts 가 묶음)
+  group     ExpenseGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String?
+  /// 결제 이름: 계약금·중도금·잔금·추가금·전액 (lib/meta PART_LABELS)
+  label     String    @default("전액")
+  /// 항목 + 결제 이름 ('스튜디오 잔금', 전액이면 항목 그대로). 항목 이름을 바꾸면 같이 바뀜
   title     String
   /// 원. 금액을 아직 모르면 비움 (낼 예정일 때. 화면에서 낸 돈은 금액을 받음)
   amount    Int?
@@ -202,6 +230,7 @@ model Expense {
 
   @@index([coupleId, date])
   @@index([eventId])
+  @@index([groupId])
 }
 
 /// 지출 첨부: 증빙 이미지(영수증·계약서 사진, 줄여서 저장 + 미리보기) 또는 파일(PDF·한글·엑셀 등 5MB 까지, 그대로 저장).
