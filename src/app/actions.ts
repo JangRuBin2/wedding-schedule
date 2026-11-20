@@ -11,7 +11,7 @@ import { THEME_COOKIE } from "@/lib/theme";
 import { blobsOfEvents, deleteBlobs, storeFileToBlob, storeImage, storePhoto } from "@/lib/photos";
 import { cleanName, fileMime, MAX_FILE } from "@/lib/attach";
 import { blobsOfExpenses } from "@/lib/receipts";
-import { COLOR_PALETTE, FALLBACK_CATEGORY, joinTitle, PART_LABELS } from "@/lib/meta";
+import { COLOR_PALETTE, FALLBACK_CATEGORY, joinTitle, PART_LABELS, splitTitle } from "@/lib/meta";
 import { getCategories, validCategory } from "@/lib/categories";
 import { currentSession, getMe, ME_COOKIE } from "@/lib/me";
 import { safeBack } from "@/lib/back";
@@ -426,9 +426,16 @@ async function addPayment(form: FormData) {
   const eventId = text(form, "eventId", 40) || null;
   const event = eventId ? await db.event.findUnique({ where: { id: eventId }, select: { id: true, category: true } }) : null;
   const me = await getMe();
+  const { base, label } = splitTitle(title);
+  const group = await db.expenseGroup.create({
+    data: { title: base, category: event?.category ?? FALLBACK_CATEGORY, eventId: event?.id ?? null, createdBy: me, updatedBy: me },
+    select: { id: true },
+  });
   await db.expense.create({
     data: {
-      title,
+      groupId: group.id,
+      label,
+      title: joinTitle(base, label),
       amount,
       date,
       paid,
@@ -455,68 +462,15 @@ const MAX_RECEIPT = 2_000_000; // 줄인 이미지 한 장 (글씨가 읽히게 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 /**
- * 지출 저장 (id 가 없으면 새로, 있으면 수정). 작성 화면이 결과를 받아서 증빙을 한 장씩 올림.
+ * 결제·지출 항목 저장 (작성·수정 화면 둘 다). 항목(이름·카테고리·이벤트) + 결제 칸들(parts JSON: 이름·상태·금액·날짜·메모).
+ * id 가 있는 칸은 고치고 없는 칸은 새로 만들고, deleted 에 든 결제는 지움 (그 항목 것만). 모두 한 트랜잭션.
+ * removeReceipt 는 이 항목 결제들의 첨부만 지움. 돌려주는 ids 는 보낸 칸 순서 그대로 (화면이 칸마다 첨부를 올리고,
+ * 다시 저장할 때 중복으로 안 생기게 기억함).
  * 배포 환경은 서버 에러 메시지를 가려서, 사용자에게 보일 문제는 throw 대신 { ok: false, error } 로 돌려줌
  */
-export async function saveExpense(form: FormData): Promise<Result<{ id: string }>> {
+export async function saveExpenseGroup(form: FormData): Promise<Result<{ groupId: string; ids: string[] }>> {
   const db = await scoped();
-  const id = text(form, "id", 40);
-  const title = text(form, "title", 60);
-  const rawAmount = text(form, "amount", 30);
-  const amount = parseWon(rawAmount);
-  const date = fromYmd(form.get("date"));
-  const paid = form.get("status") !== "planned";
-  if (!title) return { ok: false, error: "항목을 입력해 주세요" };
-  if (rawAmount && !amount) return { ok: false, error: "금액은 원 단위 숫자로 20억 원까지 입력해 주세요" };
-  if (paid && !amount) return { ok: false, error: "낸 돈은 금액을 입력해 주세요" };
-  if (!date) return { ok: false, error: paid ? "결제일을 골라 주세요" : "낼 날을 골라 주세요" };
-  const eventId = text(form, "eventId", 40) || null;
-  if (eventId && !(await db.event.findUnique({ where: { id: eventId }, select: { id: true } })))
-    return { ok: false, error: "고른 이벤트가 없어요. 다시 골라 주세요" };
-  const me = await getMe();
-  const before = id ? await db.expense.findUnique({ where: { id }, select: { paid: true } }) : null;
-  if (id && !before) return { ok: false, error: "지워진 결제예요" };
-  // '결제 완료'로 바뀔 때만 낸 때·사람을 새로 남김
-  const paidInfo = paid ? (before?.paid ? {} : { paidAt: new Date(), paidBy: me }) : { paidAt: null, paidBy: null };
-  const data = {
-    title,
-    amount,
-    date,
-    paid,
-    ...paidInfo,
-    category: await validCategory(form.get("category")),
-    eventId,
-    memo: text(form, "memo", 1000) || null,
-    updatedBy: me,
-  };
-  if (!id) {
-    const created = await db.expense.create({ data: { ...data, createdBy: me }, select: { id: true } });
-    refresh();
-    return { ok: true, id: created.id };
-  }
-  // 수정 화면에서 X 를 누른 증빙은 같이 지움 (그 지출의 것만)
-  const remove = form.getAll("removeReceipt").map(String).slice(0, MAX_RECEIPTS * 2);
-  const gone = remove.length
-    ? await db.receipt.findMany({ where: { id: { in: remove }, expenseId: id }, select: { id: true, url: true, thumbUrl: true } })
-    : [];
-  await db.$transaction([
-    db.receipt.deleteMany({ where: { id: { in: gone.map((r) => r.id) } } }),
-    db.expense.update({ where: { id }, data }),
-  ]);
-  await deleteBlobs(gone);
-  refresh();
-  return { ok: true, id };
-}
-
-/**
- * 결제·지출 저장 (작성·수정 화면 둘 다). 칸마다 적은 것을 parts(JSON)로 받아, id 가 있으면 고치고 없으면 새로 만듦 (한 트랜잭션).
- * 제목은 '항목 + 결제 이름'(예: 헤어 메이크업 계약금), '전액'이면 항목 그대로. 카테고리·이벤트는 모든 칸에,
- * 메모와 지울 첨부(removeReceipt)는 수정 화면에서 연 건(id)과 새로 만드는 건에만.
- * 돌려주는 ids 는 보낸 칸 순서 그대로 (다시 저장할 때 중복으로 안 생기게 화면이 기억함)
- */
-export async function saveExpenses(form: FormData): Promise<Result<{ ids: string[] }>> {
-  const db = await scoped();
-  const current = text(form, "id", 40);
+  const groupId = text(form, "groupId", 40);
   const base = text(form, "title", 50);
   if (!base) return { ok: false, error: "항목을 입력해 주세요" };
   let raw: unknown;
@@ -526,7 +480,7 @@ export async function saveExpenses(form: FormData): Promise<Result<{ ids: string
     raw = null;
   }
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 8) return { ok: false, error: "결제 금액이나 날짜를 하나 이상 적어 주세요" };
-  const parts: { id: string; title: string; amount: number | null; date: Date; paid: boolean }[] = [];
+  const parts: { id: string; label: string; title: string; amount: number | null; date: Date; paid: boolean; memo: string | null }[] = [];
   for (const p of raw as Record<string, unknown>[]) {
     const label = (PART_LABELS as readonly string[]).includes(String(p?.label)) ? String(p.label) : "전액";
     const name = label === "전액" ? "결제" : label;
@@ -537,42 +491,53 @@ export async function saveExpenses(form: FormData): Promise<Result<{ ids: string
     if (rawAmount && !amount) return { ok: false, error: `${name} 금액은 원 단위 숫자로 20억 원까지 입력해 주세요` };
     if (paid && !amount) return { ok: false, error: `낸 ${name}은 금액을 입력해 주세요` };
     if (!date) return { ok: false, error: `${name} ${paid ? "결제일" : "낼 날"}을 골라 주세요` };
-    parts.push({ id: typeof p?.id === "string" ? p.id.slice(0, 40) : "", title: joinTitle(base, label), amount, date, paid });
+    const memo = String(p?.memo ?? "").trim().slice(0, 1000) || null;
+    parts.push({ id: typeof p?.id === "string" ? p.id.slice(0, 40) : "", label, title: joinTitle(base, label), amount, date, paid, memo });
   }
   const eventId = text(form, "eventId", 40) || null;
   if (eventId && !(await db.event.findUnique({ where: { id: eventId }, select: { id: true } })))
     return { ok: false, error: "고른 이벤트가 없어요. 다시 골라 주세요" };
+  if (groupId && !(await db.expenseGroup.findUnique({ where: { id: groupId }, select: { id: true } }))) return { ok: false, error: "지워진 항목이에요" };
+
+  // 고치는 결제·지울 결제는 이 항목 것만 (옛 기록은 아직 항목이 없을 수 있어서 groupId 가 비어 있어도 받음)
   const ids = parts.map((p) => p.id).filter(Boolean);
-  const before: { id: string; paid: boolean }[] = ids.length ? await db.expense.findMany({ where: { id: { in: ids } }, select: { id: true, paid: true } }) : [];
+  const deleted = form.getAll("deleted").map(String).slice(0, 20).filter((id) => !ids.includes(id));
+  const mine = { OR: [{ groupId: groupId || "__none__" }, { groupId: null }] };
+  const before: { id: string; paid: boolean }[] = ids.length ? await db.expense.findMany({ where: { id: { in: ids }, ...mine }, select: { id: true, paid: true } }) : [];
   if (before.length !== new Set(ids).size) return { ok: false, error: "지워진 결제가 있어요. 새로 고쳐 주세요" };
+  const gone: { id: string }[] = deleted.length ? await db.expense.findMany({ where: { id: { in: deleted }, ...mine }, select: { id: true } }) : [];
+
   const me = await getMe();
   const category = await validCategory(form.get("category"));
-  const memo = text(form, "memo", 1000) || null;
-  const remove = current ? form.getAll("removeReceipt").map(String).slice(0, MAX_RECEIPTS * 2) : [];
-  const gone = remove.length
-    ? await db.receipt.findMany({ where: { id: { in: remove }, expenseId: current }, select: { id: true, url: true, thumbUrl: true } })
+  const group = groupId
+    ? await db.expenseGroup.update({ where: { id: groupId }, data: { title: base, category, eventId, updatedBy: me }, select: { id: true } })
+    : await db.expenseGroup.create({ data: { title: base, category, eventId, createdBy: me, updatedBy: me }, select: { id: true } });
+
+  const allIds = [...ids, ...gone.map((g) => g.id)];
+  const remove = form.getAll("removeReceipt").map(String).slice(0, MAX_RECEIPTS * 8);
+  const removed = remove.length && allIds.length
+    ? await db.receipt.findMany({ where: { id: { in: remove }, expenseId: { in: ids } }, select: { id: true, url: true, thumbUrl: true } })
     : [];
+  const goneBlobs = gone.length ? await blobsOfExpenses(db, gone.map((g) => g.id)) : [];
+  const shared = { groupId: group.id, category, eventId };
   const results = await db.$transaction([
     ...parts.map(({ id, ...p }) => {
       if (!id)
         return db.expense.create({
-          data: { ...p, category, eventId, memo, createdBy: me, updatedBy: me, ...(p.paid ? { paidAt: new Date(), paidBy: me } : {}) },
+          data: { ...p, ...shared, createdBy: me, updatedBy: me, ...(p.paid ? { paidAt: new Date(), paidBy: me } : {}) },
           select: { id: true },
         });
       const was = before.find((b) => b.id === id)!;
       // '결제 완료'로 바뀔 때만 낸 때·사람을 새로 남김
       const paidInfo = p.paid ? (was.paid ? {} : { paidAt: new Date(), paidBy: me }) : { paidAt: null, paidBy: null };
-      return db.expense.update({
-        where: { id },
-        data: { ...p, ...paidInfo, category, eventId, ...(id === current ? { memo } : {}), updatedBy: me },
-        select: { id: true },
-      });
+      return db.expense.update({ where: { id }, data: { ...p, ...paidInfo, ...shared, updatedBy: me }, select: { id: true } });
     }),
-    db.receipt.deleteMany({ where: { id: { in: gone.map((r) => r.id) } } }),
+    db.receipt.deleteMany({ where: { id: { in: removed.map((r) => r.id) } } }),
+    db.expense.deleteMany({ where: { id: { in: gone.map((g) => g.id) } } }),
   ]);
-  await deleteBlobs(gone);
+  await deleteBlobs([...removed, ...goneBlobs]);
   refresh();
-  return { ok: true, ids: (results.slice(0, parts.length) as { id: string }[]).map((c) => c.id) };
+  return { ok: true, groupId: group.id, ids: (results.slice(0, parts.length) as { id: string }[]).map((c) => c.id) };
 }
 
 /** 증빙 이미지 한 장 추가. 여러 장이면 작성 화면이 한 장씩 부름 (요청 크기 한도 4MB 안에 들게) */
@@ -658,13 +623,29 @@ export async function finishReceiptFile(id: string): Promise<Result> {
   return { ok: true };
 }
 
+/** 결제 한 건 지우기. 항목에 다른 결제가 남으면 그 결제 화면으로, 마지막이었으면 항목도 지움 */
 export async function deleteExpense(id: string, back?: string) {
   const db = await scoped();
+  const x = await db.expense.findUnique({ where: { id }, select: { groupId: true } });
+  if (!x) redirect(safeBack(back, "/expenses"));
   const blobs = await blobsOfExpenses(db, [id]);
   await db.expense.delete({ where: { id } });
   await deleteBlobs(blobs);
+  const left = x.groupId ? await db.expense.findFirst({ where: { groupId: x.groupId }, orderBy: { date: "asc" }, select: { id: true } }) : null;
+  if (x.groupId && !left) await db.expenseGroup.deleteMany({ where: { id: x.groupId } });
   refresh();
-  redirect(safeBack(back, "/expenses"));
+  redirect(left ? `/expenses/${left.id}` : safeBack(back, "/expenses"));
+}
+
+/** 항목 통째로 지우기 (결제·첨부 전부) */
+export async function deleteExpenseGroup(groupId: string) {
+  const db = await scoped();
+  const ids: string[] = (await db.expense.findMany({ where: { groupId }, select: { id: true } })).map((e: { id: string }) => e.id);
+  const blobs = await blobsOfExpenses(db, ids);
+  await db.$transaction([db.expense.deleteMany({ where: { groupId } }), db.expenseGroup.deleteMany({ where: { id: groupId } })]);
+  await deleteBlobs(blobs);
+  refresh();
+  redirect("/expenses");
 }
 
 /* ───────── 메모 ───────── */
@@ -758,6 +739,7 @@ export async function updateCategory(form: FormData) {
     db.category.update({ where: { id: cat.id }, data: { name, color } }),
     db.event.updateMany({ where: { category: cat.name }, data: { category: name } }),
     db.expense.updateMany({ where: { category: cat.name }, data: { category: name } }),
+    db.expenseGroup.updateMany({ where: { category: cat.name }, data: { category: name } }),
   ]);
   refresh();
   redirect("/settings/categories");
@@ -771,6 +753,7 @@ export async function deleteCategory(id: string) {
   await db.$transaction([
     db.event.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
     db.expense.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
+    db.expenseGroup.updateMany({ where: { category: cat.name }, data: { category: FALLBACK_CATEGORY } }),
     db.category.delete({ where: { id } }),
   ]);
   refresh();

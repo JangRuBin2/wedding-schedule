@@ -80,14 +80,24 @@ export const DUE_SUGGESTIONS = ["계약금", "중도금", "잔금", "추가금",
 /** 지출 기록 항목 추천 */
 /** 결제 한 건의 이름. 제목은 '항목 + 이름'(헤어 메이크업 계약금), '전액'이면 항목 이름 그대로 */
 export const PART_LABELS = ["계약금", "중도금", "잔금", "추가금", "전액"] as const;
-/** '헤어 메이크업 계약금' → { base: '헤어 메이크업', label: '계약금' }. 결제 이름으로 안 끝나면 전액 */
+/**
+ * '헤어 메이크업 계약금' → { base: '헤어 메이크업', label: '계약금' }. 띄어 쓰지 않은 '스튜디오잔금'도 나눔.
+ * 결제 이름으로 안 끝나거나 이름만 있으면('잔금') 전액
+ */
 export function splitTitle(title: string): { base: string; label: string } {
-  for (const l of PART_LABELS) if (l !== "전액" && title.endsWith(` ${l}`)) return { base: title.slice(0, -l.length - 1).trim(), label: l };
-  return { base: title, label: "전액" };
+  const t = title.trim();
+  for (const l of PART_LABELS) {
+    if (l === "전액" || !t.endsWith(l)) continue;
+    const base = t.slice(0, -l.length).trim();
+    if (base) return { base, label: l };
+  }
+  return { base: t, label: "전액" };
 }
 export const joinTitle = (base: string, label: string) => (label === "전액" ? base : `${base} ${label}`);
-/** 작성·수정 화면의 결제 칸 하나. id 가 있으면 이미 저장된 건 */
-export type ExpensePart = { key: number; id?: string; label: string; paid: boolean; amount: string; date: string };
+/** 저장된 첨부 하나 (작성 화면에서 보여 주고 지우기) */
+export type ReceiptInfo = { id: string; width: number; height: number; mime: string; name: string | null; size: number | null };
+/** 작성·수정 화면의 결제 칸 하나. id 가 있으면 이미 저장된 건. 메모·첨부는 결제마다 */
+export type ExpensePart = { key: number; id?: string; label: string; paid: boolean; amount: string; date: string; memo: string; receipts: ReceiptInfo[] };
 
 export const EXPENSE_SUGGESTIONS = ["계약금", "잔금", "추가금", "헬퍼비", "부케", "식대", "청첩장 인쇄", "답례품", "교통비"];
 

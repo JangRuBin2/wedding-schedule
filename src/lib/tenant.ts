@@ -8,7 +8,7 @@ import { kakaoEnabled, readSession, SESSION_COOKIE } from "./session";
  * 여러 커플이 같이 쓰는 서비스: 화면·저장 함수는 늘 `scoped()` 가 돌려주는 DB 로만 읽고 씀.
  * 이 DB 는 모든 질의에 '지금 커플 것만' 조건을 자동으로 붙여서, 질의 하나를 빼먹어도 남의 데이터가 섞이지 않음.
  *
- * - 직접 coupleId 가 있는 것: Category · Event · Expense · Note
+ * - 직접 coupleId 가 있는 것: Category · Event · Expense · ExpenseGroup · Note
  * - 부모를 따라가는 것: Task·Photo(→ Event), Receipt(→ Expense). 만들 때 부모가 우리 커플 것인지 확인
  * - Couple · User 는 여기서 걸러지지 않음 (가입·초대·계정 화면에서 직접 다룸)
  *
@@ -16,7 +16,7 @@ import { kakaoEnabled, readSession, SESSION_COOKIE } from "./session";
  */
 export const LEGACY_COUPLE = "legacy";
 
-const OWN = new Set(["Category", "Event", "Expense", "Note"]);
+const OWN = new Set(["Category", "Event", "Expense", "ExpenseGroup", "Note"]);
 const VIA: Record<string, { rel: string; fk: string; parent: "event" | "expense" }> = {
   Task: { rel: "event", fk: "eventId", parent: "event" },
   Photo: { rel: "event", fk: "eventId", parent: "event" },

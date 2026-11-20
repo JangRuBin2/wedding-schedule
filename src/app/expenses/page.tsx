@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { scoped } from "@/lib/tenant";
 import { getCategories } from "@/lib/categories";
-import { ymd } from "@/lib/dates";
 import { colorOf } from "@/lib/meta";
 import { won } from "@/lib/money";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { ExpenseRow } from "@/components/ExpenseRow";
+import { ExpenseGroupCard, type GroupView } from "@/components/ExpenseGroupCard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,31 +13,36 @@ const one = (v: unknown) => (typeof v === "string" ? v : undefined);
 const sumOf = (xs: { amount: number | null }[]) => xs.reduce((n, x) => n + (x.amount ?? 0), 0);
 
 /**
- * 결제·지출 내역 (보기 화면). 낼 예정은 위에 날짜순, 낸 돈은 결제일 최신순으로 달마다 묶고 합계.
+ * 결제·지출 내역 (보기 화면). 항목(스튜디오 등)마다 카드 하나, 안에 계약금·잔금 같은 결제가 한 줄씩.
+ * 낼 결제가 남은 항목은 위에 다음 낼 날 가까운 순, 다 낸 항목은 아래에 마지막 결제일 최신순.
  * 예산 탭의 카테고리를 누르면 ?cat= 으로 그 카테고리만
  */
 export default async function ExpensesPage({ searchParams }: { searchParams: SP }) {
   const db = await scoped();
   const sp = await searchParams;
   const now = new Date();
-  const [all, cats] = await Promise.all([
-    db.expense.findMany({
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { event: { select: { title: true } }, _count: { select: { receipts: { where: { ready: true } } } } },
-    }),
+  const pay = { include: { _count: { select: { receipts: { where: { ready: true } } } } } };
+  const [groups, loose, cats] = await Promise.all([
+    db.expenseGroup.findMany({ include: { event: { select: { title: true } }, expenses: pay } }),
+    // 옛 기록(아직 항목에 안 묶임)은 결제 하나짜리 항목처럼
+    db.expense.findMany({ where: { groupId: null }, include: { event: { select: { title: true } }, ...pay.include } }),
     getCategories(),
   ]);
+  const all: GroupView[] = [
+    ...groups.filter((g) => g.expenses.length > 0).map((g) => ({ ...g, key: g.id })),
+    ...loose.map((x) => ({ key: x.id, title: x.title, category: x.category, event: x.event, expenses: [{ ...x, label: "전액" }] })),
+  ];
   const known = cats.some((c) => c.name === one(sp.cat));
   const cat = known ? one(sp.cat)! : null;
-  const list = cat ? all.filter((x) => x.category === cat) : all;
-  const planned = list.filter((x) => !x.paid).reverse(); // 낼 날 가까운 것부터
-  const paid = list.filter((x) => x.paid);
+  const list = cat ? all.filter((g) => g.category === cat) : all;
+  const pays = list.flatMap((g) => g.expenses);
+  const planned = pays.filter((x) => !x.paid);
+  const paid = pays.filter((x) => x.paid);
   const budget = cat ? cats.find((c) => c.name === cat)?.budget ?? 0 : 0;
-  const months = new Map<string, typeof paid>();
-  for (const x of paid) {
-    const k = ymd(x.date).slice(0, 7);
-    months.set(k, [...(months.get(k) ?? []), x]);
-  }
+  const nextDue = (g: GroupView) => Math.min(...g.expenses.filter((x) => !x.paid).map((x) => x.date.getTime()));
+  const lastPaid = (g: GroupView) => Math.max(...g.expenses.map((x) => x.date.getTime()));
+  const open = list.filter((g) => g.expenses.some((x) => !x.paid)).sort((a, b) => nextDue(a) - nextDue(b));
+  const done = list.filter((g) => g.expenses.every((x) => x.paid)).sort((a, b) => lastPaid(b) - lastPaid(a));
   const newHref = `/expenses/new?back=${encodeURIComponent(cat ? `/expenses?cat=${cat}` : "/expenses")}${cat ? `&cat=${encodeURIComponent(cat)}` : ""}`;
 
   return (
@@ -63,7 +67,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: SP 
       <CategoryFilter
         base="/expenses"
         value={cat ?? ""}
-        options={cats.map((c) => ({ name: c.name, count: all.filter((x) => x.category === c.name).length }))}
+        options={cats.map((c) => ({ name: c.name, count: all.filter((g) => g.category === c.name).length }))}
       />
 
       {list.length === 0 ? (
@@ -73,37 +77,26 @@ export default async function ExpensesPage({ searchParams }: { searchParams: SP 
         </Link>
       ) : (
         <>
-          {planned.length > 0 && (
-            <section>
+          {open.length > 0 && (
+            <section className="space-y-2.5">
               <h2 className="section-title">
-                결제 예정 <small className="num">{sumOf(planned) ? won(sumOf(planned)) : `금액 미정 ${planned.length}건`}</small>
+                결제 남음 <small className="num">{sumOf(planned) ? `${won(sumOf(planned))} 예정` : `금액 미정 ${planned.length}건`}</small>
               </h2>
-              <ul className="card ledger !py-1">
-                {planned.map((x) => (
-                  <li key={x.id}>
-                    <ExpenseRow x={x} color={colorOf(cats, x.category)} now={now} />
-                  </li>
-                ))}
-              </ul>
+              {open.map((g) => (
+                <ExpenseGroupCard key={g.key} g={g} color={colorOf(cats, g.category)} now={now} />
+              ))}
             </section>
           )}
-          {[...months].map(([month, xs]) => {
-            const [y, m] = month.split("-").map(Number);
-            return (
-              <section key={month}>
-                <h2 className="section-title">
-                  {y}년 {m}월 <small className="num">{won(sumOf(xs))}</small>
-                </h2>
-                <ul className="card ledger !py-1">
-                  {xs.map((x) => (
-                    <li key={x.id}>
-                      <ExpenseRow x={x} color={colorOf(cats, x.category)} now={now} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+          {done.length > 0 && (
+            <section className="space-y-2.5">
+              <h2 className="section-title">
+                결제 끝 <small className="num">{won(sumOf(done.flatMap((g) => g.expenses)))}</small>
+              </h2>
+              {done.map((g) => (
+                <ExpenseGroupCard key={g.key} g={g} color={colorOf(cats, g.category)} now={now} />
+              ))}
+            </section>
+          )}
         </>
       )}
     </main>
